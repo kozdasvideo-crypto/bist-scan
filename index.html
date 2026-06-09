@@ -84,7 +84,7 @@ body{font-family:-apple-system,SF Pro Display,Segoe UI,sans-serif;background:var
 .score-ring{width:44px;height:44px;position:relative;flex-shrink:0;}
 .score-ring svg{transform:rotate(-90deg);}
 .score-ring .val{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:11px;font-weight:900;text-align:center;line-height:1.1;}
-.score-ring .lbl{font-size:7px;color:var(--muted);}
+.score-ring .lbl{font-size:8px;color:var(--muted);letter-spacing:0.5px;margin-top:1px;}
 
 /* Vade pills */
 .vade-row{display:flex;gap:5px;padding:0 13px 8px;flex-wrap:wrap;align-items:center;}
@@ -216,6 +216,9 @@ const TV_FIELDS = [
   "price_earnings_ttm","price_book_ratio","price_sales_ratio","price_free_cash_flow_ttm",
   "enterprise_value_ebitda_ttm","earnings_per_share_diluted_ttm",
   "dividends_yield_current","dividend_payout_ratio_ttm",
+  "dps_common_stock_prim_issue","dividends_per_share_fq",
+  "dividend_per_share_yoy_growth_fy","continuous_dividend_payout","continuous_dividend_growth",
+  "dividends_yield",
   "market_cap_basic","total_shares_outstanding_fundamental","float_shares_outstanding",
   "volume","average_volume_10d_calc","average_volume_30d_calc","relative_volume_10d_calc",
   "return_on_equity","return_on_assets","return_on_invested_capital",
@@ -326,7 +329,11 @@ async function fetchAll(){
       eps: G(d,"earnings_per_share_diluted_ttm")??G(d,"earnings_per_share_basic_ttm")??G(d,"earnings_per_share_ttm"),
 
       // Temettü
-      div: G(d,"dividends_yield_current"), payout: G(d,"dividend_payout_ratio_ttm"),
+      div: G(d,"dividends_yield_current")??G(d,"dividends_yield"), payout: G(d,"dividend_payout_ratio_ttm"),
+      dps: G(d,"dps_common_stock_prim_issue")??G(d,"dividends_per_share_fq"),
+      divGrowth: G(d,"dividend_per_share_yoy_growth_fy"),
+      divYears: G(d,"continuous_dividend_payout"),
+      divGrowYears: G(d,"continuous_dividend_growth"),
 
       // Büyüklük & likidite
       mcap: G(d,"market_cap_basic"),
@@ -955,9 +962,23 @@ function fullAnalyze(s){return{
 
 function headlineTxt(s,sc){
   const total=sc.total;
-  if(total>=8) return["pos","🚀 Güçlü alım adayı ("+total+"/10)"];
-  if(total>=6) return["pos","✅ Olumlu görünüm ("+total+"/10)"];
-  if(total>=4) return["neu","⚡ Karışık sinyaller ("+total+"/10)"];
+  // Teknik SAT sinyali sayısı — toplam skor yüksek olsa bile alım adayı dememeli
+  const sells=[s.rd,s.rw,s.rm].filter(x=>x!=null&&x<=-0.1).length;
+  const buys=[s.rd,s.rw,s.rm].filter(x=>x!=null&&x>=0.1).length;
+  // Çoğunluk SAT diyorsa, yüksek skora rağmen alım adayı deme
+  if(sells>=2){
+    if(sells===3) return["neg","⛔ Satış bölgesinde — 3/3 vadede SAT sinyali ("+total+"/10)"];
+    return["neg","⚠️ Satış baskısı — çoğunlukta SAT sinyali ("+total+"/10)"];
+  }
+  // Zarar eden / negatif nakit akışı uyarısı
+  if((s.eps!=null&&s.eps<0)||(s.fcfMargin!=null&&s.fcfMargin<0)){
+    return["neg","⚠️ Temel zayıflık — zarar/negatif nakit akışı ("+total+"/10)"];
+  }
+  // Gerçek alım adayı: yüksek skor + en az 2 vadede AL
+  if(total>=8&&buys>=2) return["pos","🚀 Güçlü alım adayı ("+total+"/10)"];
+  if(total>=6&&buys>=1) return["pos","✅ Olumlu görünüm ("+total+"/10)"];
+  if(total>=8)          return["neu","📊 Güçlü temel ama teknik teyit zayıf ("+total+"/10)"];
+  if(total>=4)          return["neu","⚡ Karışık sinyaller ("+total+"/10)"];
   return["neg","⚠️ Zayıf görünüm ("+total+"/10)"];
 }
 
@@ -979,63 +1000,129 @@ function scoreDividend(s){
 
   let e=0, p=0;
 
-  // Temettü verimi (max 35p) — temel kriter
-  p+=35;
-  if(s.div>=12)       e+=35;
-  else if(s.div>=8)   e+=30;
-  else if(s.div>=5)   e+=23;
-  else if(s.div>=3)   e+=16;
-  else if(s.div>=1.5) e+=9;
+  // Temettü verimi (max 30p) — temel kriter
+  p+=30;
+  if(s.div>=12)       e+=30;
+  else if(s.div>=8)   e+=26;
+  else if(s.div>=5)   e+=20;
+  else if(s.div>=3)   e+=14;
+  else if(s.div>=1.5) e+=8;
   else                e+=3;
 
-  // Dağıtım oranı (payout ratio) — SÜRDÜRÜLEBİLİRLİĞİN EN KRİTİK göstergesi (max 15p)
-  // Kârın %30-60'ını dağıtmak ideal; %100+ dağıtım borçla ödeme demek = sürdürülemez
+  // Dağıtım oranı (payout) — sürdürülebilirlik (max 13p)
   if(s.payout!=null&&s.payout>0){
-    p+=15;
-    if(s.payout>=30&&s.payout<=60)      e+=15;  // ideal denge
-    else if(s.payout>60&&s.payout<=80)  e+=11;  // cömert ama sürdürülebilir
-    else if(s.payout>=15&&s.payout<30)  e+=10;  // temkinli (büyüme payı yüksek)
-    else if(s.payout>80&&s.payout<=100) e+=6;   // gergin
-    else if(s.payout<15)                e+=5;   // çok düşük dağıtım
-    // >100: kârından fazla dağıtıyor — sürdürülemez, 0 puan
+    p+=13;
+    if(s.payout>=30&&s.payout<=60)      e+=13;
+    else if(s.payout>60&&s.payout<=80)  e+=10;
+    else if(s.payout>=15&&s.payout<30)  e+=9;
+    else if(s.payout>80&&s.payout<=100) e+=5;
+    else if(s.payout<15)                e+=4;
+    // >100: sürdürülemez, 0 puan
   }
 
-  // ROE — temettünün kaynağı sağlam mı (max 18p)
+  // Temettü süreklilik — kaç yıldır kesintisiz ödüyor (max 10p)
+  // Düzenli temettü ödeme geçmişi güvenilirliğin en güçlü kanıtı
+  if(s.divYears!=null){
+    p+=10;
+    if(s.divYears>=7)      e+=10;  // 7+ yıl kesintisiz — çok güvenilir
+    else if(s.divYears>=5) e+=8;
+    else if(s.divYears>=3) e+=5;
+    else if(s.divYears>=1) e+=2;
+  }
+
+  // Temettü büyümesi — temettü artıyor mu (max 9p)
+  // Artan temettü = sağlıklı, büyüyen şirket; azalan = uyarı işareti
+  if(s.divGrowYears!=null&&s.divGrowYears>=1){
+    p+=9;
+    if(s.divGrowYears>=5)      e+=9;  // 5+ yıl artarak ödüyor
+    else if(s.divGrowYears>=3) e+=6;
+    else                       e+=3;
+  } else if(s.divGrowth!=null){
+    p+=9;
+    if(s.divGrowth>=10)        e+=9;  // güçlü artış
+    else if(s.divGrowth>=0)    e+=5;  // sabit/hafif artış
+    // negatif büyüme: temettü düşüyor, 0 puan
+  }
+
+  // ROE — temettünün kaynağı sağlam mı (max 14p)
   if(s.roe!=null){
-    p+=18;
-    if(s.roe>=25)      e+=18;
-    else if(s.roe>=15) e+=14;
-    else if(s.roe>=8)  e+=7;
+    p+=14;
+    if(s.roe>=25)      e+=14;
+    else if(s.roe>=15) e+=11;
+    else if(s.roe>=8)  e+=6;
     else if(s.roe>=0)  e+=2;
   }
 
-  // Borç/ÖK — ödeme kapasitesi (max 17p)
+  // Borç/ÖK — ödeme kapasitesi (max 12p)
   if(s.debt!=null){
-    p+=17;
-    if(s.debt<0.2)     e+=17;
-    else if(s.debt<0.5)e+=14;
-    else if(s.debt<1.0)e+=9;
-    else if(s.debt<2.0)e+=3;
-    // >=2.0: 0 puan
+    p+=12;
+    if(s.debt<0.2)     e+=12;
+    else if(s.debt<0.5)e+=10;
+    else if(s.debt<1.0)e+=6;
+    else if(s.debt<2.0)e+=2;
   }
 
-  // F/K — ucuzluk (max 8p)
+  // F/K — ucuzluk (max 6p)
   if(s.pe!=null&&s.pe>0){
-    p+=8;
-    if(s.pe<8)         e+=8;
-    else if(s.pe<15)   e+=6;
-    else if(s.pe<25)   e+=2;
-  } else if(s.pe!=null){ p+=8; } // zarar eden: 0/8
+    p+=6;
+    if(s.pe<8)         e+=6;
+    else if(s.pe<15)   e+=4;
+    else if(s.pe<25)   e+=1;
+  } else if(s.pe!=null){ p+=6; }
 
-  // Serbest nakit akışı — temettüyü nakitle ödeyebiliyor mu (max 7p)
-  if(s.fcf!=null){
-    p+=7;
-    if(s.fcf>0)        e+=7;   // pozitif FCF = temettü nakitten ödeniyor
-    // FCF<0: temettü borçla/rezervle ödeniyor — riskli, 0 puan
+  // Serbest nakit akışı — temettüyü nakitle ödeyebiliyor mu (max 6p)
+  if(s.fcfMargin!=null){
+    p+=6;
+    if(s.fcfMargin>0)  e+=6;
+  } else if(s.fcf!=null){
+    p+=6;
+    if(s.fcf>0)        e+=6;
   }
 
-  // Normalize: kazanılan/mümkün * 100
   return Math.min(100, Math.max(0, Math.round((e/p)*100)));
+}
+
+// Temettü hissesi için ALIM FIRSATI puanı (0-100):
+// Temettü kalitesi (%60) + fiyat/giriş zamanlaması (%40) birleşimi.
+// "İyi temettü hissesi" ile "şu an alınacak iyi temettü hissesi" farklıdır.
+function scoreDivBuyOpportunity(s){
+  const divScore=scoreDividend(s);   // 0-100 temettü kalitesi
+  let timing=0, tp=0;
+
+  // RSI — ucuza mı işlem görüyor (max 35p)
+  if(s.rsi!=null){
+    tp+=35;
+    if(s.rsi<=35)      timing+=35;  // aşırı satım — temettü hissesi için iskonto fırsatı
+    else if(s.rsi<=45) timing+=28;
+    else if(s.rsi<=55) timing+=20;
+    else if(s.rsi<=65) timing+=10;
+    // >65: pahalı bölge, temettü verimi düşmüş olur
+  }
+
+  // 52H aralığında konum — dibe mi yakın (max 35p)
+  // Temettü hissesi dipten alınırsa hem verim yüksek hem değer kazanç potansiyeli
+  if(s.hi52!=null&&s.lo52!=null&&s.hi52>s.lo52&&s.price>0){
+    tp+=35;
+    const pos=(s.price-s.lo52)/(s.hi52-s.lo52); // 0=dip, 1=tepe
+    if(pos<=0.25)      timing+=35;  // dibe yakın — en iyi giriş
+    else if(pos<=0.45) timing+=27;
+    else if(pos<=0.65) timing+=17;
+    else if(pos<=0.85) timing+=8;
+    // tepeye yakın: zayıf giriş
+  }
+
+  // PD/DD — defter değerine göre ucuzluk (max 30p)
+  if(s.pb!=null&&s.pb>0){
+    tp+=30;
+    if(s.pb<1)        timing+=30;  // defter değerinin altında
+    else if(s.pb<1.5) timing+=23;
+    else if(s.pb<2.5) timing+=14;
+    else if(s.pb<4)   timing+=6;
+  }
+
+  const timingScore = tp>0 ? (timing/tp)*100 : 50;
+  // Birleşik: temettü kalitesi %60 + giriş zamanlaması %40
+  return Math.round(divScore*0.6 + timingScore*0.4);
 }
 
 function getDivLabel(score){
@@ -1043,6 +1130,13 @@ function getDivLabel(score){
   if(score>=55) return["GÜÇLÜ","#16a34a"];
   if(score>=35) return["ORTA","#ca8a04"];
   return["ZAYIF","#b91c1c"];
+}
+
+function getDivBuyLabel(score){
+  if(score>=72) return["ŞİMDİ AL","#15803d"];
+  if(score>=55) return["İYİ FIRSAT","#16a34a"];
+  if(score>=40) return["İZLE","#ca8a04"];
+  return["BEKLE","#b91c1c"];
 }
 
 
@@ -1259,23 +1353,50 @@ function render(){
 function renderBist30(){
   const c=document.getElementById("content");
   // BIST 30 = piyasa değeri en büyük + likit 30 hisse (endeks tanımıyla birebir).
-  // Sabit liste tutmak yerine dinamik hesaplanır; her veri çekiminde güncel kalır.
   const universe=STOCKS
     .filter(s=>s.price>0 && s.mcap!=null && s.mcap>0 && s.avgvol!=null && s.avgvol>=500000)
-    .sort((a,b)=>b.mcap-a.mcap)   // önce piyasa değerine göre en büyük 30'u seç
+    .sort((a,b)=>b.mcap-a.mcap)
     .slice(0,30);
-  const list=universe
-    .map(s=>{const sc=totalScore(s);return{s,sc};})
-    .sort((a,b)=>{                  // sonra alım uygunluğuna (skor) göre sırala
+
+  // Top 10 ile AYNI alım kapısı — sadece gerçek alım adayları
+  const isBuyCandidate=(s,sc)=>{
+    const buys=[s.rd,s.rw,s.rm].filter(x=>x!=null&&x>=0.1).length;
+    if(buys<2) return false;
+    if(s.eps!=null&&s.eps<0)  return false;
+    if(s.pe!=null&&s.pe<0)    return false;
+    if(s.pe!=null&&s.pe>40)   return false;
+    if(s.rsi!=null&&s.rsi>=80)return false;
+    if(s.fcfMargin!=null&&s.fcfMargin<0) return false;
+    if(s.payout!=null&&s.payout>100)     return false;
+    if(s.debt!=null&&s.debt>=3)          return false;
+    if(sc.raw<5) return false;
+    return true;
+  };
+
+  const scored=universe.map(s=>({s,sc:totalScore(s)}));
+  const candidates=scored.filter(x=>isBuyCandidate(x.s,x.sc))
+    .sort((a,b)=>{
       if(Math.abs(b.sc.raw-a.sc.raw)>0.001) return b.sc.raw-a.sc.raw;
       return (b.s.mcap||0)-(a.s.mcap||0);
     });
+  const others=scored.filter(x=>!isBuyCandidate(x.s,x.sc))
+    .sort((a,b)=>(b.s.mcap||0)-(a.s.mcap||0)); // alım adayı olmayanlar: piyasa değerine göre
+
   const modeBar=`<div class="mode-row">${Object.entries(MODES).map(([k,m])=>`<button class="mode-btn${currentMode===k?' active':''}" data-mode="${k}" onclick="setMode('${k}')">${m.label}<span class="mode-desc">${m.desc}</span></button>`).join('')}</div>`;
-  c.innerHTML=`<div class="disclaimer">⚠️ Yatırım tavsiyesi değildir.</div>`+modeBar+
-    `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:9px 13px;margin-bottom:10px;font-size:10px;color:var(--muted);line-height:1.5;">📊 Piyasa değeri en büyük 30 hisse, alım skoruna göre sıralanır. Endeks her çeyrek değiştiği için liste otomatik güncellenir.</div>`+
-    `<div class="sec-hdr"><h2>📊 BIST 30 · Alım Sıralaması</h2><span class="badge">${list.length}</span></div>`+
-    (list.length?list.map((it,i)=>buildCard(it,i+1)).join(""):
-    `<div class="empty"><span>📊</span>BIST 30 verisi yükleniyor…</div>`);
+
+  let body=`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:9px 13px;margin-bottom:10px;font-size:10px;color:var(--muted);line-height:1.5;">📊 BIST 30 (piyasa değeri en büyük 30 hisse) arasından Top 10 ile aynı katı kriterleri geçen alım adayları. Kalanlar aşağıda "şu an alım adayı değil" olarak listelenir.</div>`;
+
+  body+=`<div class="sec-hdr"><h2>📊 BIST 30 · Alım Adayları</h2><span class="badge">${candidates.length}</span></div>`;
+  body+= candidates.length
+    ? candidates.map((it,i)=>buildCard(it,i+1)).join("")
+    : `<div class="empty"><span>🤷</span>Şu an BIST 30 içinde katı kriterleri geçen alım adayı yok.</div>`;
+
+  if(others.length){
+    body+=`<div class="sec-hdr" style="margin-top:18px;"><h2 style="color:var(--muted);font-size:13px;">Şu an alım adayı değil</h2><span class="badge">${others.length}</span></div>`;
+    body+= others.map(it=>buildCard(it,null)).join("");
+  }
+
+  c.innerHTML=`<div class="disclaimer">⚠️ Yatırım tavsiyesi değildir.</div>`+modeBar+body;
 }
 
 // ─── Temettü Render ───────────────────────────────────────────────────────────
@@ -1283,7 +1404,13 @@ function buildDivCard(s,rank){
   const sc=totalScore(s);
   const divScore=scoreDividend(s);
   const [dlbl,dclr]=getDivLabel(divScore);
+  const buyScore=scoreDivBuyOpportunity(s);
+  const [blbl,bclr]=getDivBuyLabel(buyScore);
   const catColor=v=>v>=7?"#22c55e":v>=5?"#f59e0b":"#f87171";
+  // 52H konum yüzdesi (dipten uzaklık)
+  let pos52=null;
+  if(s.hi52!=null&&s.lo52!=null&&s.hi52>s.lo52&&s.price>0)
+    pos52=Math.round((s.price-s.lo52)/(s.hi52-s.lo52)*100);
   return `<div class="card">
   <div class="card-head">
     <div class="card-left">
@@ -1302,61 +1429,83 @@ function buildDivCard(s,rank){
     </div>
   </div>
 
-  <div style="display:flex;align-items:center;gap:8px;padding:4px 13px 8px;">
+  <div style="display:flex;align-items:center;gap:6px;padding:4px 13px 4px;flex-wrap:wrap;">
     <span style="background:${dclr};color:#fff;border-radius:999px;padding:3px 10px;font-size:10px;font-weight:800;">${dlbl}</span>
-    <span style="font-size:10px;color:var(--muted);">Temettü Skoru: <b style="color:var(--text)">${divScore}/100</b></span>
+    <span style="font-size:10px;color:var(--muted);">Temettü Kalitesi: <b style="color:var(--text)">${divScore}/100</b></span>
+  </div>
+  <div style="display:flex;align-items:center;gap:6px;padding:0 13px 8px;flex-wrap:wrap;">
+    <span style="background:${bclr};color:#fff;border-radius:999px;padding:3px 10px;font-size:10px;font-weight:800;">🎯 ${blbl}</span>
+    <span style="font-size:10px;color:var(--muted);">Alım Fırsatı: <b style="color:var(--text)">${buyScore}/100</b> <span style="opacity:.7">(temettü %60 + fiyat %40)</span></span>
   </div>
 
   <div class="cat-scores">
     <div class="cat-score"><div class="cs-label">F/K</div><div class="cs-val" style="color:${catColor(sc.valuation)}">${peTxt(s.pe)}</div></div>
     <div class="cat-score"><div class="cs-label">ROE</div><div class="cs-val" style="color:${catColor(sc.quality)}">${s.roe!=null?"%"+s.roe.toFixed(0):"—"}</div></div>
     <div class="cat-score"><div class="cs-label">Borç/ÖK</div><div class="cs-val" style="color:${catColor(sc.health)}">${s.debt!=null?s.debt.toFixed(2):"—"}</div></div>
-    <div class="cat-score"><div class="cs-label">Net Marj</div><div class="cs-val" style="color:${catColor(sc.quality)}">${s.netMargin!=null?"%"+s.netMargin.toFixed(0):"—"}</div></div>
-    <div class="cat-score"><div class="cs-label">Genel</div><div class="cs-val" style="color:${catColor(sc.total)}">${sc.total}/10</div></div>
+    <div class="cat-score"><div class="cs-label">Dağıtım</div><div class="cs-val">${s.payout!=null?"%"+s.payout.toFixed(0):"—"}</div></div>
+    <div class="cat-score"><div class="cs-label">RSI</div><div class="cs-val" style="color:${s.rsi!=null?(s.rsi<=40?"#22c55e":s.rsi>=70?"#f87171":"#f59e0b"):"#9ca3af"}">${s.rsi!=null?s.rsi.toFixed(0):"—"}</div></div>
   </div>
 
   <div class="quick-grid">
-    <div class="qm"><div class="ql">PD/DD</div><div class="qv">${fmt(s.pb)}</div></div>
-    <div class="qm"><div class="ql">EPS</div><div class="qv">${s.eps!=null?s.eps.toFixed(2):"—"}</div></div>
-    <div class="qm"><div class="ql">Cari Oran</div><div class="qv">${fmt(s.currentRatio)}</div></div>
-    <div class="qm"><div class="ql">Beta</div><div class="qv">${fmt(s.beta)}</div></div>
+    <div class="qm"><div class="ql">Hisse Başı Tem.</div><div class="qv">${s.dps!=null?s.dps.toFixed(2)+" TL":"—"}</div></div>
+    <div class="qm"><div class="ql">Ödeme Geçmişi</div><div class="qv">${s.divYears!=null?s.divYears+" yıl":"—"}</div></div>
+    <div class="qm"><div class="ql">Temettü Artışı</div><div class="qv">${s.divGrowYears!=null&&s.divGrowYears>=1?s.divGrowYears+" yıl ↑":(s.divGrowth!=null?(s.divGrowth>=0?"+":"")+s.divGrowth.toFixed(0)+"%":"—")}</div></div>
+    <div class="qm"><div class="ql">52H Konum</div><div class="qv">${pos52!=null?"%"+pos52:"—"}</div></div>
   </div>
 
   <div class="detail-toggle" onclick="toggleDetail('div_${s.symbol}',this)">
-    🔍 Detaylı analiz (5 kategori) <span class="arrow">▼</span>
+    🔍 Detaylı analiz <span class="arrow">▼</span>
   </div>
   <div class="detail-body" id="db_div_${s.symbol}">
     <div class="dsec">
       <div class="dsec-title"><span>💰</span>Temettü Detayı</div>
-      ${s.div!=null&&s.div>0?`<div class="aitem"><span class="dot pos"></span><span>Temettü verimi %${s.div.toFixed(2)} — nakit getiri mevcut.</span></div>`:`<div class="aitem"><span class="dot neg"></span><span>Temettü bilgisi bulunamadı.</span></div>`}
-      ${s.roe!=null&&s.roe>=15?`<div class="aitem"><span class="dot pos"></span><span>ROE=%${s.roe.toFixed(0)} — sürdürülebilir temettü için sağlam kârlılık.</span></div>`:""}
-      ${s.debt!=null&&s.debt<0.8?`<div class="aitem"><span class="dot pos"></span><span>Borç/ÖK=${s.debt.toFixed(2)} — düşük borç, temettü ödeme kapasitesi güçlü.</span></div>`:""}
-      ${s.debt!=null&&s.debt>=2?`<div class="aitem"><span class="dot neg"></span><span>Borç/ÖK=${s.debt.toFixed(2)} — yüksek borç, temettü sürekliliği riskli olabilir.</span></div>`:""}
-      ${s.netMargin!=null&&s.netMargin>0?`<div class="aitem"><span class="dot neu"></span><span>Net kar marjı %${s.netMargin.toFixed(1)}.</span></div>`:""}
+      ${s.div!=null&&s.div>0?`<div class="aitem"><span class="dot pos"></span><span>Temettü verimi %${s.div.toFixed(2)}${s.dps!=null?` (hisse başı ${s.dps.toFixed(2)} TL)`:""}.</span></div>`:""}
+      ${s.divYears!=null&&s.divYears>=5?`<div class="aitem"><span class="dot pos"></span><span>${s.divYears} yıldır kesintisiz temettü ödüyor — güvenilir ödeme geçmişi.</span></div>`:(s.divYears!=null&&s.divYears>=1?`<div class="aitem"><span class="dot neu"></span><span>${s.divYears} yıldır temettü ödüyor.</span></div>`:"")}
+      ${s.divGrowYears!=null&&s.divGrowYears>=3?`<div class="aitem"><span class="dot pos"></span><span>${s.divGrowYears} yıldır temettüsünü artırarak ödüyor — büyüyen getiri.</span></div>`:""}
+      ${s.divGrowth!=null&&s.divGrowth<0?`<div class="aitem"><span class="dot neg"></span><span>Son yıl temettü %${Math.abs(s.divGrowth).toFixed(0)} azaldı — dikkat.</span></div>`:""}
+      ${s.payout!=null?(s.payout>=30&&s.payout<=70?`<div class="aitem"><span class="dot pos"></span><span>Dağıtım oranı %${s.payout.toFixed(0)} — kâr ile temettü dengeli, sürdürülebilir.</span></div>`:(s.payout>100?`<div class="aitem"><span class="dot neg"></span><span>Dağıtım oranı %${s.payout.toFixed(0)} — kârından fazla dağıtıyor, sürdürülemez olabilir.</span></div>`:`<div class="aitem"><span class="dot neu"></span><span>Dağıtım oranı %${s.payout.toFixed(0)}.</span></div>`)):""}
+      ${s.debt!=null&&s.debt<0.8?`<div class="aitem"><span class="dot pos"></span><span>Borç/ÖK=${s.debt.toFixed(2)} — düşük borç, temettü ödeme kapasitesi güçlü.</span></div>`:(s.debt!=null&&s.debt>=2?`<div class="aitem"><span class="dot neg"></span><span>Borç/ÖK=${s.debt.toFixed(2)} — yüksek borç, temettü sürekliliği riskli.</span></div>`:"")}
+    </div>
+    <div class="dsec">
+      <div class="dsec-title"><span>🎯</span>Alım Fırsatı (fiyat/zamanlama)</div>
+      ${s.rsi!=null?(s.rsi<=40?`<div class="aitem"><span class="dot pos"></span><span>RSI=${s.rsi.toFixed(0)} — aşırı satım bölgesi, temettü hissesi için iskontolu giriş fırsatı.</span></div>`:(s.rsi>=70?`<div class="aitem"><span class="dot neg"></span><span>RSI=${s.rsi.toFixed(0)} — pahalı bölge, verim düşmüş olabilir, düzeltme beklenebilir.</span></div>`:`<div class="aitem"><span class="dot neu"></span><span>RSI=${s.rsi.toFixed(0)} — nötr bölge.</span></div>`)):""}
+      ${pos52!=null?(pos52<=30?`<div class="aitem"><span class="dot pos"></span><span>52 hafta dibine yakın (%${pos52}) — hem yüksek verim hem değer kazanç potansiyeli.</span></div>`:(pos52>=80?`<div class="aitem"><span class="dot neu"></span><span>52 hafta tepesine yakın (%${pos52}) — giriş için pahalı.</span></div>`:`<div class="aitem"><span class="dot neu"></span><span>52 hafta aralığında orta konumda (%${pos52}).</span></div>`)):""}
+      ${s.pb!=null&&s.pb<1.5?`<div class="aitem"><span class="dot pos"></span><span>PD/DD=${s.pb.toFixed(2)} — defter değerine göre makul/ucuz.</span></div>`:(s.pb!=null&&s.pb>=4?`<div class="aitem"><span class="dot neu"></span><span>PD/DD=${s.pb.toFixed(2)} — defter değerine göre pahalı.</span></div>`:"")}
     </div>
     <div class="ext-links">
       <a class="ext-link" href="https://tr.tradingview.com/symbols/BIST-${s.symbol}/" target="_blank">TradingView</a>
-      <a class="ext-link" href="https://tr.investing.com/search/?q=${s.symbol}" target="_blank">Investing</a>
+      <a class="ext-link" href="https://www.isyatirim.com.tr/tr-tr/analiz/hisse/Sayfalar/sirket-karti.aspx?hisse=${s.symbol}" target="_blank">İş Yatırım</a>
       <a class="ext-link" href="https://www.kap.org.tr/tr/sirket-finansal-bilgileri/${s.symbol}" target="_blank">KAP</a>
     </div>
   </div>
 </div>`;
 }
 
+let divSortMode="quality"; // "quality" = temettü kalitesi, "opportunity" = alım fırsatı
+function setDivSort(m){divSortMode=m;render();}
+
 function renderTemettu(){
   const c=document.getElementById("content");
-  const list=STOCKS
+  const base=STOCKS
     .filter(s=>s.div!=null&&s.div>=1.5&&s.price>0&&s.avgvol!=null&&s.avgvol>=200000)
-    .filter(s=>!(s.eps!=null&&s.eps<0))  // zarar eden şirket sürdürülebilir temettü ödeyemez
-    .map(s=>({s,divScore:scoreDividend(s)}))
-    .filter(x=>x.divScore>=15) // anlamlı temettü skoru eşiği
-    .sort((a,b)=>b.divScore-a.divScore)
+    .filter(s=>!(s.eps!=null&&s.eps<0))
+    .map(s=>({s,divScore:scoreDividend(s),buyScore:scoreDivBuyOpportunity(s)}))
+    .filter(x=>x.divScore>=15);
+  const list=base
+    .sort((a,b)=> divSortMode==="opportunity" ? b.buyScore-a.buyScore : b.divScore-a.divScore)
     .slice(0,20);
-  c.innerHTML=`<div class="disclaimer">⚠️ Yatırım tavsiyesi değildir.</div>`+
+
+  const sortBar=`<div style="display:flex;gap:6px;margin-bottom:10px;">
+    <button onclick="setDivSort('quality')" style="flex:1;padding:7px;border-radius:8px;border:1px solid var(--border);font-size:11px;font-weight:700;cursor:pointer;background:${divSortMode==='quality'?'var(--accent)':'transparent'};color:${divSortMode==='quality'?'#fff':'var(--muted)'};">💎 Temettü Kalitesi</button>
+    <button onclick="setDivSort('opportunity')" style="flex:1;padding:7px;border-radius:8px;border:1px solid var(--border);font-size:11px;font-weight:700;cursor:pointer;background:${divSortMode==='opportunity'?'var(--accent)':'transparent'};color:${divSortMode==='opportunity'?'#fff':'var(--muted)'};">🎯 Alım Fırsatı</button>
+  </div>`;
+
+  c.innerHTML=`<div class="disclaimer">⚠️ Yatırım tavsiyesi değildir.</div>`+sortBar+
     `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 13px;margin-bottom:10px;font-size:11px;color:var(--muted);line-height:1.6;">
-      💡 <b style="color:var(--text)">Temettü Skoru</b> nasıl hesaplanır? Temettü verimi (%40), ROE (%20), borç sağlığı (%20), F/K (%10), kar marjı (%10) — normalize edilmiş bileşik skor.
+      💡 <b style="color:var(--text)">Temettü Kalitesi</b>: verim, dağıtım oranı, ödeme geçmişi, büyüme, ROE, borç, nakit akışı.<br>
+      🎯 <b style="color:var(--text)">Alım Fırsatı</b>: temettü kalitesi (%60) + fiyat/giriş zamanlaması (%40: RSI, 52H konum, PD/DD). "İyi temettü hissesi" ile "şu an ucuz temettü hissesi" farklıdır.
     </div>`+
-    `<div class="sec-hdr"><h2>💰 En İyi 20 Temettü Hissesi</h2><span class="badge">${list.length}</span></div>`+
+    `<div class="sec-hdr"><h2>💰 En İyi 20 Temettü Hissesi · ${divSortMode==='opportunity'?'Alım Fırsatına':'Kaliteye'} Göre</h2><span class="badge">${list.length}</span></div>`+
     (list.length?list.map((it,i)=>buildDivCard(it.s,i+1)).join(""):
     `<div class="empty"><span>💰</span>Temettü verisi bulunamadı</div>`);
 }
