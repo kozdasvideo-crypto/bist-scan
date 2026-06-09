@@ -1247,7 +1247,7 @@ function buildCard(item,rank){
         ["Brüt Marj",s.grossMargin!=null?"%"+s.grossMargin.toFixed(1):"—"],["FAVÖK Marj",s.ebitdaMargin!=null?"%"+s.ebitdaMargin.toFixed(1):"—"],
         ["Borç/ÖK",fmt(s.debt)],["Cari Oran",fmt(s.currentRatio)],
         ["Asit-Test",fmt(s.quickRatio)],["FCF",s.fcf!=null?(s.fcf>=0?"+":"")+(s.fcf/1e9).toFixed(2)+"B":"—"],
-        ["Temettü",s.div?"%"+s.div.toFixed(1):"—"],["Dağıtım Or.",s.payout!=null?"%"+s.payout.toFixed(0):"—"],
+        ["Temettü",s.div?"%"+s.div.toFixed(1):"—"],["Dağıtım Or.",(s.payout!=null&&s.payout>0)?"%"+s.payout.toFixed(0):"—"],
         ["1ay",pct(s.p1m)],["3ay",pct(s.p3m)],
         ["6ay",pct(s.p6m)],["1yıl",pct(s.py)],
       ].map(([k,v])=>`<div class="srow"><span>${k}</span><b>${esc(v)}</b></div>`).join("")}
@@ -1443,7 +1443,7 @@ function buildDivCard(s,rank){
     <div class="cat-score"><div class="cs-label">F/K</div><div class="cs-val" style="color:${catColor(sc.valuation)}">${peTxt(s.pe)}</div></div>
     <div class="cat-score"><div class="cs-label">ROE</div><div class="cs-val" style="color:${catColor(sc.quality)}">${s.roe!=null?"%"+s.roe.toFixed(0):"—"}</div></div>
     <div class="cat-score"><div class="cs-label">Borç/ÖK</div><div class="cs-val" style="color:${catColor(sc.health)}">${s.debt!=null?s.debt.toFixed(2):"—"}</div></div>
-    <div class="cat-score"><div class="cs-label">Dağıtım</div><div class="cs-val">${s.payout!=null?"%"+s.payout.toFixed(0):"—"}</div></div>
+    <div class="cat-score"><div class="cs-label">Dağıtım</div><div class="cs-val">${(s.payout!=null&&s.payout>0)?"%"+s.payout.toFixed(0):"—"}</div></div>
     <div class="cat-score"><div class="cs-label">RSI</div><div class="cs-val" style="color:${s.rsi!=null?(s.rsi<=40?"#22c55e":s.rsi>=70?"#f87171":"#f59e0b"):"#9ca3af"}">${s.rsi!=null?s.rsi.toFixed(0):"—"}</div></div>
   </div>
 
@@ -1464,7 +1464,7 @@ function buildDivCard(s,rank){
       ${s.divYears!=null&&s.divYears>=5?`<div class="aitem"><span class="dot pos"></span><span>${s.divYears} yıldır kesintisiz temettü ödüyor — güvenilir ödeme geçmişi.</span></div>`:(s.divYears!=null&&s.divYears>=1?`<div class="aitem"><span class="dot neu"></span><span>${s.divYears} yıldır temettü ödüyor.</span></div>`:"")}
       ${s.divGrowYears!=null&&s.divGrowYears>=3?`<div class="aitem"><span class="dot pos"></span><span>${s.divGrowYears} yıldır temettüsünü artırarak ödüyor — büyüyen getiri.</span></div>`:""}
       ${s.divGrowth!=null&&s.divGrowth<0?`<div class="aitem"><span class="dot neg"></span><span>Son yıl temettü %${Math.abs(s.divGrowth).toFixed(0)} azaldı — dikkat.</span></div>`:""}
-      ${s.payout!=null?(s.payout>=30&&s.payout<=70?`<div class="aitem"><span class="dot pos"></span><span>Dağıtım oranı %${s.payout.toFixed(0)} — kâr ile temettü dengeli, sürdürülebilir.</span></div>`:(s.payout>100?`<div class="aitem"><span class="dot neg"></span><span>Dağıtım oranı %${s.payout.toFixed(0)} — kârından fazla dağıtıyor, sürdürülemez olabilir.</span></div>`:`<div class="aitem"><span class="dot neu"></span><span>Dağıtım oranı %${s.payout.toFixed(0)}.</span></div>`)):""}
+      ${(s.payout!=null&&s.payout>0)?(s.payout>=30&&s.payout<=70?`<div class="aitem"><span class="dot pos"></span><span>Dağıtım oranı %${s.payout.toFixed(0)} — kâr ile temettü dengeli, sürdürülebilir.</span></div>`:(s.payout>100?`<div class="aitem"><span class="dot neg"></span><span>Dağıtım oranı %${s.payout.toFixed(0)} — kârından fazla dağıtıyor, sürdürülemez olabilir.</span></div>`:`<div class="aitem"><span class="dot neu"></span><span>Dağıtım oranı %${s.payout.toFixed(0)}.</span></div>`)):""}
       ${s.debt!=null&&s.debt<0.8?`<div class="aitem"><span class="dot pos"></span><span>Borç/ÖK=${s.debt.toFixed(2)} — düşük borç, temettü ödeme kapasitesi güçlü.</span></div>`:(s.debt!=null&&s.debt>=2?`<div class="aitem"><span class="dot neg"></span><span>Borç/ÖK=${s.debt.toFixed(2)} — yüksek borç, temettü sürekliliği riskli.</span></div>`:"")}
     </div>
     <div class="dsec">
