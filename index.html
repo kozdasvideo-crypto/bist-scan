@@ -1022,12 +1022,13 @@ function scoreDividend(s){
 
   // Temettü süreklilik — kaç yıldır kesintisiz ödüyor (max 10p)
   // Düzenli temettü ödeme geçmişi güvenilirliğin en güçlü kanıtı
-  if(s.divYears!=null){
+  // Not: 0 veya null = veri yok, bu kriteri atla (haksız ceza verme)
+  if(s.divYears!=null&&s.divYears>=1){
     p+=10;
     if(s.divYears>=7)      e+=10;  // 7+ yıl kesintisiz — çok güvenilir
     else if(s.divYears>=5) e+=8;
     else if(s.divYears>=3) e+=5;
-    else if(s.divYears>=1) e+=2;
+    else                   e+=2;
   }
 
   // Temettü büyümesi — temettü artıyor mu (max 9p)
@@ -1037,7 +1038,7 @@ function scoreDividend(s){
     if(s.divGrowYears>=5)      e+=9;  // 5+ yıl artarak ödüyor
     else if(s.divGrowYears>=3) e+=6;
     else                       e+=3;
-  } else if(s.divGrowth!=null){
+  } else if(s.divGrowth!=null&&s.divGrowth!==0){
     p+=9;
     if(s.divGrowth>=10)        e+=9;  // güçlü artış
     else if(s.divGrowth>=0)    e+=5;  // sabit/hafif artış
@@ -1447,9 +1448,9 @@ function buildDivCard(s,rank){
   </div>
 
   <div class="quick-grid">
-    <div class="qm"><div class="ql">Hisse Başı Tem.</div><div class="qv">${s.dps!=null?s.dps.toFixed(2)+" TL":"—"}</div></div>
-    <div class="qm"><div class="ql">Ödeme Geçmişi</div><div class="qv">${s.divYears!=null?s.divYears+" yıl":"—"}</div></div>
-    <div class="qm"><div class="ql">Temettü Artışı</div><div class="qv">${s.divGrowYears!=null&&s.divGrowYears>=1?s.divGrowYears+" yıl ↑":(s.divGrowth!=null?(s.divGrowth>=0?"+":"")+s.divGrowth.toFixed(0)+"%":"—")}</div></div>
+    <div class="qm"><div class="ql">Piyasa Değeri</div><div class="qv">${s.mcap!=null&&s.mcap>0?(s.mcap>=1e9?(s.mcap/1e9).toFixed(1)+" Mr":(s.mcap/1e6).toFixed(0)+" Mn"):"—"}</div></div>
+    <div class="qm"><div class="ql">Ödeme Geçmişi</div><div class="qv">${(s.divYears!=null&&s.divYears>=1)?s.divYears+" yıl":"—"}</div></div>
+    <div class="qm"><div class="ql">Temettü Artışı</div><div class="qv">${(s.divGrowYears!=null&&s.divGrowYears>=1)?s.divGrowYears+" yıl ↑":(s.divGrowth!=null?(s.divGrowth>=0?"+":"")+s.divGrowth.toFixed(0)+"%":"—")}</div></div>
     <div class="qm"><div class="ql">52H Konum</div><div class="qv">${pos52!=null?"%"+pos52:"—"}</div></div>
   </div>
 
@@ -1459,7 +1460,7 @@ function buildDivCard(s,rank){
   <div class="detail-body" id="db_div_${s.symbol}">
     <div class="dsec">
       <div class="dsec-title"><span>💰</span>Temettü Detayı</div>
-      ${s.div!=null&&s.div>0?`<div class="aitem"><span class="dot pos"></span><span>Temettü verimi %${s.div.toFixed(2)}${s.dps!=null?` (hisse başı ${s.dps.toFixed(2)} TL)`:""}.</span></div>`:""}
+      ${s.div!=null&&s.div>0?`<div class="aitem"><span class="dot pos"></span><span>Temettü verimi %${s.div.toFixed(2)} (son 12 ay bazlı).</span></div>`:""}
       ${s.divYears!=null&&s.divYears>=5?`<div class="aitem"><span class="dot pos"></span><span>${s.divYears} yıldır kesintisiz temettü ödüyor — güvenilir ödeme geçmişi.</span></div>`:(s.divYears!=null&&s.divYears>=1?`<div class="aitem"><span class="dot neu"></span><span>${s.divYears} yıldır temettü ödüyor.</span></div>`:"")}
       ${s.divGrowYears!=null&&s.divGrowYears>=3?`<div class="aitem"><span class="dot pos"></span><span>${s.divGrowYears} yıldır temettüsünü artırarak ödüyor — büyüyen getiri.</span></div>`:""}
       ${s.divGrowth!=null&&s.divGrowth<0?`<div class="aitem"><span class="dot neg"></span><span>Son yıl temettü %${Math.abs(s.divGrowth).toFixed(0)} azaldı — dikkat.</span></div>`:""}
@@ -1583,4 +1584,3 @@ function setAuto(){const el=document.getElementById("auto");if(!el)return;
 load();
 </script>
 </body>
-</html>
