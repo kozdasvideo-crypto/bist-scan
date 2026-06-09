@@ -1,0 +1,1437 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#060a14">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>BIST SCAN</title>
+<style>
+:root{
+  --bg:#060a14;--bg2:#0d1424;--bg3:#111d30;--bg4:#0a1628;
+  --border:#1a2540;--text:#e2e8f4;--muted:#5a7090;
+  --accent:#3b7eff;--accentL:#1a3a70;
+  --green:#22c55e;--greenD:#15803d;
+  --red:#f87171;--redD:#991b1b;
+  --yellow:#f59e0b;--gold:#fbbf24;--orange:#fb923c;
+  --purple:#a78bfa;--cyan:#22d3ee;
+  --r:14px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0;}
+body{font-family:-apple-system,SF Pro Display,Segoe UI,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overscroll-behavior:none;}
+
+/* Topbar */
+#topbar{position:sticky;top:0;z-index:100;background:rgba(6,10,20,.96);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:10px 14px 8px;}
+.tb1{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.logo{font-size:14px;font-weight:900;letter-spacing:.08em;color:var(--accent);}
+.logo span{color:var(--text);}
+#status{font-size:10px;color:var(--muted);flex:1;text-align:center;padding:0 6px;}
+#refreshBtn{background:var(--accentL);border:1px solid var(--accent);color:var(--accent);border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;}
+.tabs{display:flex;gap:4px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+.tabs::-webkit-scrollbar{display:none;}
+.tab{flex:0 0 auto;padding:6px 12px;font-size:11px;font-weight:700;text-align:center;border-radius:8px;border:1px solid var(--border);color:var(--muted);background:none;cursor:pointer;white-space:nowrap;}
+.tab.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+
+/* Search */
+#searchWrap{padding:8px 14px 0;display:none;}
+#search{width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:8px 14px;font-size:14px;outline:none;}
+#search:focus{border-color:var(--accent);}
+
+/* Main */
+#main{padding:10px 14px 28px;}
+
+/* Loading */
+.loading{display:flex;flex-direction:column;align-items:center;padding:80px 20px;gap:14px;}
+.spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.loading p{color:var(--muted);font-size:12px;}
+
+/* Controls */
+.controls{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;}
+.controls label{font-size:11px;color:var(--muted);}
+.controls select{background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:4px 8px;font-size:11px;outline:none;}
+.sort-btn{background:var(--bg2);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;}
+.sort-btn.active{border-color:var(--accent);color:var(--accent);}
+.mode-row{display:flex;gap:5px;margin-bottom:10px;}
+.mode-btn{flex:1;background:var(--bg2);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:6px 3px;font-size:10px;font-weight:700;cursor:pointer;text-align:center;line-height:1.4;}
+.mode-btn.active{background:var(--accentL);border-color:var(--accent);color:var(--accent);}
+.mode-desc{font-size:8px;color:var(--muted);font-weight:400;display:block;}
+.mode-btn.active .mode-desc{color:var(--accent);}
+
+/* Section header */
+.sec-hdr{display:flex;align-items:center;gap:8px;margin:4px 0 10px;}
+.sec-hdr h2{font-size:13px;font-weight:800;}
+.badge{background:var(--accentL);color:var(--accent);border-radius:999px;padding:2px 8px;font-size:10px;font-weight:700;}
+
+/* Disclaimer */
+.disclaimer{background:var(--bg2);border:1px solid #2a1f00;border-radius:10px;padding:8px 12px;font-size:10px;color:var(--yellow);margin-bottom:10px;}
+
+/* ── CARD ── */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);margin-bottom:10px;overflow:hidden;}
+
+/* Card header */
+.card-head{display:flex;justify-content:space-between;align-items:flex-start;padding:11px 13px 8px;}
+.card-left{display:flex;align-items:center;gap:9px;}
+.rank-badge{background:var(--gold);color:#000;font-weight:900;font-size:11px;border-radius:7px;padding:2px 6px;flex-shrink:0;}
+.sym{font-size:16px;font-weight:900;}
+.company{font-size:10px;color:var(--muted);margin-top:1px;max-width:155px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.price-block{text-align:right;}
+.price{font-size:16px;font-weight:800;font-variant-numeric:tabular-nums;}
+.chg{font-size:11px;font-weight:700;margin-top:1px;}
+.chg.up{color:var(--green);}.chg.dn{color:var(--red);}
+
+/* Score ring */
+.score-ring{width:44px;height:44px;position:relative;flex-shrink:0;}
+.score-ring svg{transform:rotate(-90deg);}
+.score-ring .val{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:11px;font-weight:900;text-align:center;line-height:1.1;}
+.score-ring .lbl{font-size:7px;color:var(--muted);}
+
+/* Vade pills */
+.vade-row{display:flex;gap:5px;padding:0 13px 8px;flex-wrap:wrap;align-items:center;}
+.vade-label{font-size:9px;color:var(--muted);display:flex;align-items:center;gap:3px;}
+.vpill{border-radius:999px;padding:2px 7px;font-size:9px;font-weight:800;color:#fff;}
+
+/* 5 kategori skoru */
+.cat-scores{display:flex;border-top:1px solid var(--border);border-bottom:1px solid var(--border);}
+.cat-score{flex:1;text-align:center;padding:6px 2px;border-right:1px solid var(--border);}
+.cat-score:last-child{border-right:none;}
+.cs-label{font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin-bottom:3px;}
+.cs-val{font-size:12px;font-weight:800;}
+.cs-bar{height:3px;border-radius:2px;margin-top:3px;transition:width .4s;}
+
+/* Hızlı metrik grid */
+.quick-grid{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--border);}
+.qm{text-align:center;padding:7px 3px;border-right:1px solid var(--border);}
+.qm:last-child{border-right:none;}
+.qm .ql{font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin-bottom:2px;}
+.qm .qv{font-size:12px;font-weight:700;}
+
+/* Özet satır */
+.headline{padding:7px 13px;font-size:11px;font-weight:600;border-bottom:1px solid var(--border);}
+.headline.pos{color:var(--green);}.headline.neg{color:var(--red);}.headline.neu{color:var(--yellow);}
+
+/* Detail toggle */
+.detail-toggle{display:flex;align-items:center;justify-content:space-between;padding:9px 13px;font-size:11px;color:var(--accent);font-weight:700;cursor:pointer;user-select:none;}
+.arrow{transition:transform .2s;font-size:12px;}
+.detail-toggle.open .arrow{transform:rotate(180deg);}
+.detail-body{display:none;background:var(--bg3);}
+.detail-body.open{display:block;}
+
+/* Detail sections */
+.dsec{padding:10px 13px;border-bottom:1px solid var(--border);}
+.dsec:last-child{border-bottom:none;}
+.dsec-title{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:5px;}
+.dsec-title span{font-size:13px;}
+
+/* Stats 2 col */
+.stats2{display:grid;grid-template-columns:1fr 1fr;gap:0;}
+.srow{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:11px;}
+.srow:last-child{border-bottom:none;}
+.srow span{color:var(--muted);}
+.srow b{font-variant-numeric:tabular-nums;}
+
+/* Colored value */
+.pos-val{color:var(--green);}.neg-val{color:var(--red);}.neu-val{color:var(--text);}
+
+/* Assessment items */
+.aitem{display:flex;align-items:flex-start;gap:7px;padding:3px 0;font-size:11px;line-height:1.4;}
+.dot{width:6px;height:6px;border-radius:50%;margin-top:4px;flex-shrink:0;}
+.dot.pos{background:var(--green);}.dot.neg{background:var(--red);}.dot.neu{background:var(--muted);}
+
+/* Signal badges */
+.sig-grid{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px;}
+.sig{padding:3px 8px;border-radius:6px;font-size:10px;font-weight:700;}
+.sig.pos{background:#052010;color:var(--green);border:1px solid var(--greenD);}
+.sig.neg{background:#1a0505;color:var(--red);border:1px solid var(--redD);}
+.sig.neu{background:var(--bg2);color:var(--muted);border:1px solid var(--border);}
+
+/* Links */
+.ext-links{display:flex;gap:6px;padding:10px 13px;}
+.ext-link{flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:6px 0;text-align:center;font-size:10px;color:var(--accent);text-decoration:none;font-weight:700;}
+
+/* Alarm */
+.alarm-add{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:13px;margin-bottom:10px;}
+.alarm-add h3{font-size:12px;font-weight:800;margin-bottom:10px;}
+.alarm-inputs{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:7px;}
+.alarm-inputs input,.alarm-inputs select{background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 9px;font-size:12px;outline:none;width:100%;}
+.alarm-inputs input:focus,.alarm-inputs select:focus{border-color:var(--accent);}
+.btn-primary{width:100%;background:var(--accent);border:none;color:#fff;border-radius:8px;padding:9px;font-size:13px;font-weight:800;cursor:pointer;margin-bottom:5px;}
+.btn-secondary{width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:8px;font-size:11px;font-weight:700;cursor:pointer;}
+.alarm-item{display:flex;align-items:center;justify-content:space-between;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 13px;margin-bottom:7px;}
+.alarm-sym{font-weight:800;font-size:12px;}
+.alarm-info{font-size:10px;color:var(--muted);margin-top:2px;}
+.alarm-cur{color:var(--accent);font-weight:700;}
+.alarm-del{background:none;border:none;color:var(--red);font-size:17px;cursor:pointer;}
+.alarm-fire{background:#052010;border:1px solid var(--green);border-radius:10px;padding:9px 13px;margin-bottom:7px;font-size:12px;color:var(--green);font-weight:700;}
+.empty{text-align:center;padding:40px 20px;color:var(--muted);font-size:13px;}
+.empty span{font-size:28px;display:block;margin-bottom:8px;}
+.error-box{background:#1a0a0a;border:1px solid var(--redD);border-radius:10px;padding:20px;text-align:center;}
+.error-box p{color:var(--red);font-size:12px;margin-bottom:10px;line-height:1.5;}
+.error-box button{background:var(--redD);border:none;color:#fff;border-radius:8px;padding:9px 18px;font-size:12px;font-weight:700;cursor:pointer;}
+</style>
+</head>
+<body>
+<div id="topbar">
+  <div class="tb1">
+    <div class="logo">BIST<span> SCAN</span></div>
+    <div id="status">Yükleniyor…</div>
+    <button id="refreshBtn" onclick="load()">↻ Yenile</button>
+  </div>
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('top10')">🏆 Top 10</button>
+    <button class="tab" onclick="switchTab('bist30')">📊 BIST 30</button>
+    <button class="tab" onclick="switchTab('temettu')">💰 Temettü</button>
+    <button class="tab" onclick="switchTab('search')">🔎 Ara</button>
+    <button class="tab" onclick="switchTab('alarms')">🔔 Alarm</button>
+  </div>
+</div>
+<div id="searchWrap"><input id="search" placeholder="Sembol veya şirket adı (THYAO...)" oninput="onSearch()"></div>
+<div id="main">
+  <div class="loading" id="loader"><div class="spinner"></div><p>607 hisse analiz ediliyor…</p></div>
+  <div id="content" style="display:none;"></div>
+</div>
+
+<script>
+// ─── Değişkenler ─────────────────────────────────────────────────────────────
+let STOCKS=[], autoTimer=null, currentTab="top10", sortMode="score";
+const num=x=>(x==null||isNaN(x))?null:Number(x);
+const esc=s=>(""+s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fmt=(v,d=2,s="")=>v==null?"—":(v.toFixed(d)+s);
+const peTxt=v=>v==null?"—":(v<0?"Zarar":v.toFixed(1));
+const pct=v=>v==null?"—":(v>=0?"+":"")+v.toFixed(1)+"%";
+const colorVal=(v,good="pos")=>v==null?"neu-val":v>0?good+"_val":"neg_val";
+
+// ─── Veri çek (Netlify fonksiyonu GEREKMEZ — doğrudan TradingView) ───────────
+// TradingView scanner'a tarayıcıdan doğrudan bağlanır. CORS engeli için
+// birden fazla public proxy sırayla denenir; biri çalışırsa veri gelir.
+const TV_FIELDS = [
+  "name","description","sector","industry","close","change",
+  "Recommend.All","Recommend.MA","Recommend.Other",
+  "RSI","RSI[1]","Mom","CCI20","MACD.macd","MACD.signal",
+  "Stoch.K","Stoch.D","ADX","ADX+DI","ADX-DI","AO","Aroon.Up","Aroon.Down","ATR",
+  "Volatility.D","Volatility.W",
+  "SMA20","SMA50","SMA100","SMA200","EMA20","EMA50","EMA200","VWMA",
+  "BB.upper","BB.lower","BB.basis","price_52_week_high","price_52_week_low","High.52W","Low.52W",
+  "Perf.W","Perf.1M","Perf.3M","Perf.6M","Perf.Y","Perf.YTD","Perf.5Y",
+  "price_earnings_ttm","price_book_ratio","price_sales_ratio","price_free_cash_flow_ttm",
+  "enterprise_value_ebitda_ttm","earnings_per_share_diluted_ttm",
+  "dividends_yield_current","dividend_payout_ratio_ttm",
+  "market_cap_basic","total_shares_outstanding_fundamental","float_shares_outstanding",
+  "volume","average_volume_10d_calc","average_volume_30d_calc","relative_volume_10d_calc",
+  "return_on_equity","return_on_assets","return_on_invested_capital",
+  "gross_margin","operating_margin","net_margin","ebitda_margin","free_cash_flow_margin_ttm",
+  "debt_to_equity","current_ratio","quick_ratio",
+  "total_debt","total_assets","cash_n_short_term_invest",
+  "total_revenue_ttm","net_income_ttm","free_cash_flow_ttm","ebitda_ttm",
+  "revenue_per_employee","beta_1_year","number_of_employees",
+  // alternatif (eski) isimler — fallback
+  "P.E","Price to Book","price_to_sales_ratio","price_free_cash_flow",
+  "enterprise_value_to_ebitda","earnings_per_share_basic_ttm",
+  "total_revenue","net_income","free_cash_flow","ebitda","earnings_per_share_ttm"
+];
+
+async function tvScan(){
+  const body={
+    filter:[{left:"exchange",operation:"equal",right:"BIST"}],
+    options:{lang:"tr"}, markets:["turkey"],
+    symbols:{query:{types:["stock"]}},
+    columns:TV_FIELDS,
+    sort:{sortBy:"market_cap_basic",sortOrder:"desc"},
+    range:[0,750]
+  };
+  const TV_URL="https://scanner.tradingview.com/turkey/scan";
+  const payload=JSON.stringify(body);
+
+  // Önce doğrudan (bazı tarayıcı/ağlarda CORS açık olabilir), olmazsa proxy'ler
+  const attempts=[
+    // 1) doğrudan
+    async()=>{
+      const r=await fetch(TV_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:payload,signal:AbortSignal.timeout(15000)});
+      if(!r.ok)throw 0; return r.json();
+    },
+    // 2) allorigins (POST destekli)
+    async()=>{
+      const r=await fetch("https://api.allorigins.win/raw?url="+encodeURIComponent(TV_URL),{method:"POST",headers:{"Content-Type":"application/json"},body:payload,signal:AbortSignal.timeout(18000)});
+      if(!r.ok)throw 0; return r.json();
+    },
+    // 3) corsproxy.io
+    async()=>{
+      const r=await fetch("https://corsproxy.io/?url="+encodeURIComponent(TV_URL),{method:"POST",headers:{"Content-Type":"application/json"},body:payload,signal:AbortSignal.timeout(18000)});
+      if(!r.ok)throw 0; return r.json();
+    },
+    // 4) thingproxy
+    async()=>{
+      const r=await fetch("https://thingproxy.freeboard.io/fetch/"+TV_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:payload,signal:AbortSignal.timeout(18000)});
+      if(!r.ok)throw 0; return r.json();
+    }
+  ];
+  let lastErr;
+  for(const fn of attempts){
+    try{ const j=await fn(); if(j&&j.data&&j.data.length) return j; }
+    catch(e){ lastErr=e; }
+  }
+  throw new Error("Veri kaynağına ulaşılamadı (CORS/ağ). Lütfen tekrar deneyin.");
+}
+
+async function fetchAll(){
+  const j=await tvScan();
+  const fields=TV_FIELDS;                          // kolonlar bizim gönderdiğimiz sırada
+  const idx={};
+  fields.forEach((f,i)=>{ idx[f]=i; });
+  const G=(d,name)=>{ const i=idx[name]; return (i==null)?null:num(d[i]); };
+
+  return (j.data||[]).map(row=>{
+    const d=row.d;
+    return{
+      // Kimlik — sembol HER ZAMAN row.s'den ("BIST:THYAO" → "THYAO")
+      symbol: (row.s||"").split(":").pop() || G(d,"name"),
+      name:   d[idx["description"]] || d[idx["name"]] || "",
+      sector: idx["sector"]!=null ? d[idx["sector"]] : null,
+      industry: idx["industry"]!=null ? d[idx["industry"]] : null,
+
+      // Fiyat & değişim
+      price:  G(d,"close")||0,
+      change: Math.round((G(d,"change")||0)*100)/100,
+
+      // TradingView öneri skorları (-1..+1)
+      rd: G(d,"Recommend.All"), rw: G(d,"Recommend.MA"), rm: G(d,"Recommend.Other"),
+
+      // Momentum / osilatörler
+      rsi: G(d,"RSI"), rsiPrev: G(d,"RSI[1]"),
+      mom: G(d,"Mom"), cci: G(d,"CCI20"), ao: G(d,"AO"),
+      macd: G(d,"MACD.macd"), macds: G(d,"MACD.signal"),
+      stochK: G(d,"Stoch.K"), stochD: G(d,"Stoch.D"),
+      adx: G(d,"ADX"), adxPlus: G(d,"ADX+DI"), adxMinus: G(d,"ADX-DI"),
+      aroonUp: G(d,"Aroon.Up"), aroonDn: G(d,"Aroon.Down"),
+      atr: G(d,"ATR"),
+
+      // Hareketli ortalamalar
+      sma20: G(d,"SMA20"), sma50: G(d,"SMA50"), sma100: G(d,"SMA100"), sma200: G(d,"SMA200"),
+      ema20: G(d,"EMA20"), ema50: G(d,"EMA50"), ema200: G(d,"EMA200"),
+      vwma: G(d,"VWMA"),
+
+      // Bollinger & 52H aralık
+      bbUp: G(d,"BB.upper"), bbLow: G(d,"BB.lower"), bbBasis: G(d,"BB.basis"),
+      hi52: G(d,"price_52_week_high")??G(d,"High.52W"),
+      lo52: G(d,"price_52_week_low")??G(d,"Low.52W"),
+
+      // Getiriler
+      pW: G(d,"Perf.W"), p1m: G(d,"Perf.1M"), p3m: G(d,"Perf.3M"),
+      p6m: G(d,"Perf.6M"), py: G(d,"Perf.Y"), pYtd: G(d,"Perf.YTD"), p5y: G(d,"Perf.5Y"),
+
+      // Değerleme (yeni isim ?? eski isim)
+      pe: G(d,"price_earnings_ttm")??G(d,"P.E"),
+      pb: G(d,"price_book_ratio")??G(d,"Price to Book"),
+      ps: G(d,"price_sales_ratio")??G(d,"price_to_sales_ratio"),
+      pfcf: G(d,"price_free_cash_flow_ttm")??G(d,"price_free_cash_flow"),
+      evEbitda: G(d,"enterprise_value_ebitda_ttm")??G(d,"enterprise_value_to_ebitda"),
+      eps: G(d,"earnings_per_share_diluted_ttm")??G(d,"earnings_per_share_basic_ttm")??G(d,"earnings_per_share_ttm"),
+
+      // Temettü
+      div: G(d,"dividends_yield_current"), payout: G(d,"dividend_payout_ratio_ttm"),
+
+      // Büyüklük & likidite
+      mcap: G(d,"market_cap_basic"),
+      sharesOut: G(d,"total_shares_outstanding_fundamental"),
+      floatShares: G(d,"float_shares_outstanding"),
+      vol: G(d,"volume"),
+      avgvol10: G(d,"average_volume_10d_calc"),
+      avgvol: G(d,"average_volume_30d_calc"),
+      relVol: G(d,"relative_volume_10d_calc"),
+
+      // Volatilite & risk
+      volaD: G(d,"Volatility.D"), volaW: G(d,"Volatility.W"), beta: G(d,"beta_1_year"),
+
+      // Kârlılık & verimlilik
+      roe: G(d,"return_on_equity"), roa: G(d,"return_on_assets"), roic: G(d,"return_on_invested_capital"),
+      grossMargin: G(d,"gross_margin"), opMargin: G(d,"operating_margin"),
+      netMargin: G(d,"net_margin"), ebitdaMargin: G(d,"ebitda_margin"),
+      fcfMargin: G(d,"free_cash_flow_margin_ttm"),
+
+      // Bilanço (yeni TTM isim ?? eski isim)
+      debt: G(d,"debt_to_equity"), currentRatio: G(d,"current_ratio"), quickRatio: G(d,"quick_ratio"),
+      totalDebt: G(d,"total_debt"), totalAssets: G(d,"total_assets"),
+      cash: G(d,"cash_n_short_term_invest"),
+      totalRev: G(d,"total_revenue_ttm")??G(d,"total_revenue"),
+      netIncome: G(d,"net_income_ttm")??G(d,"net_income"),
+      fcf: G(d,"free_cash_flow_ttm")??G(d,"free_cash_flow"),
+      ebitda: G(d,"ebitda_ttm")??G(d,"ebitda"),
+
+      // Diğer
+      revPerEmp: G(d,"revenue_per_employee"), employees: G(d,"number_of_employees"),
+      nextEarnings: idx["earnings_release_next_date"]!=null ? d[idx["earnings_release_next_date"]] : null
+    };
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 5 KATEGORİLİ PUANLAMA SİSTEMİ  (v2 — tam düzeltilmiş)
+//
+// Tasarım ilkeleri:
+//   • Her fonksiyon 0–10 arası FLOAT döndürür (yuvarlama sadece gösterimde)
+//   • Normalize: earned / possible * 10  (veri yoksa alan hesaba girmez)
+//   • Negatif ceza YOK — eksik/kötü veri sadece 0 puan alır
+//   • Sıralama her zaman ham float (raw) üzerinden yapılır
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ── 1. TEKNİK MOMENTUM (0–10) ────────────────────────────────────────────────
+function scoreTechnical(s){
+  let e=0, p=0;
+
+  // TradingView öneri skoru — her vade bağımsız (max 3p toplam)
+  // +1 = AL (≥0.1), +0.5 = NÖTR (−0.1..0.1), 0 = SAT
+  [s.rd, s.rw, s.rm].forEach(v=>{
+    if(v==null) return;
+    p+=1;
+    if(v>=0.1)       e+=1;
+    else if(v>=-0.1) e+=0.5;
+  });
+
+  // RSI — alım bölgesi + YÖN teyidi (max 3p)
+  // 40–65 = momentum teyitli alım ideali; <30 dip fırsatı; ≥70 aşırı alım
+  if(s.rsi!=null){
+    p+=3;
+    let r=0;
+    if(s.rsi>=40&&s.rsi<65)       r=3;   // ideal alım bölgesi
+    else if(s.rsi>=30&&s.rsi<40)  r=2.5; // dip yaklaşımı
+    else if(s.rsi>=65&&s.rsi<70)  r=1.5; // güçlü ama dikkatli
+    else if(s.rsi<30)             r=2;   // aşırı satım — teknik dip
+    // ≥70: aşırı alım — 0
+    // RSI yön teyidi: yükseliyorsa ödül, düşüyorsa kısmi kırpma
+    if(s.rsiPrev!=null){
+      if(s.rsi>s.rsiPrev)      r=Math.min(3,r*1.1);  // momentum güçleniyor
+      else if(s.rsi<s.rsiPrev) r=r*0.85;             // momentum zayıflıyor
+    }
+    e+=r;
+  }
+
+  // MACD histogram + sinyal kesişimi (max 2p)
+  if(s.macd!=null&&s.macds!=null){
+    p+=2;
+    const diff=s.macd-s.macds;
+    if(diff>0)                       e+=2;
+    else if(diff>-Math.abs(s.macds)*0.05) e+=1; // kesişim eşiğinde
+  }
+
+  // EMA dizilimi — fiyat > EMA20 > EMA50 > EMA200 (max 2p)
+  // Mükemmel yükseliş dizilimi en güçlü trend sinyalidir
+  if(s.price>0&&s.ema20!=null&&s.ema50!=null&&s.ema200!=null){
+    p+=2;
+    if(s.price>s.ema20&&s.ema20>s.ema50&&s.ema50>s.ema200) e+=2;   // tam dizilim
+    else if(s.price>s.ema50&&s.ema50>s.ema200)             e+=1.4; // güçlü
+    else if(s.price>s.ema200)                              e+=0.7; // uzun vade üstünde
+  } else if(s.sma50!=null&&s.sma200!=null){
+    // EMA yoksa SMA golden cross'a düş (max 2p)
+    p+=2;
+    if(s.sma50>s.sma200)           e+=2;
+    else if(s.sma50>s.sma200*0.97) e+=0.8;
+  }
+
+  // Fiyat SMA50 üstünde mi (max 1p)
+  if(s.price>0&&s.sma50!=null){
+    p+=1;
+    if(s.price>s.sma50) e+=1;
+    else if(s.price>s.sma50*0.97) e+=0.4;
+  }
+
+  // ADX — trend gücü + YÖN (+DI > -DI yükseliş trendini teyit eder) (max 1.5p)
+  if(s.adx!=null){
+    p+=1.5;
+    let a=0;
+    if(s.adx>=30)      a=1;
+    else if(s.adx>=22) a=0.6;
+    else if(s.adx>=15) a=0.2;
+    // Yön teyidi: +DI > -DI ise yükseliş trendi güçlü → bonus
+    if(s.adxPlus!=null&&s.adxMinus!=null){
+      if(s.adxPlus>s.adxMinus) a+=0.5;   // alıcı baskın
+      else                     a=a*0.5;  // satıcı baskın — trend gücü aleyhte
+    }
+    e+=Math.min(1.5,a);
+  }
+
+  // Stochastic — aşırı satım/alım (max 2p)
+  if(s.stochK!=null){
+    p+=2;
+    if(s.stochK<=25)                                      e+=2;   // aşırı satım
+    else if(s.stochK<=50&&s.stochD!=null&&s.stochK>s.stochD) e+=1.5; // yükselen momentum
+    else if(s.stochK<75&&s.stochD!=null&&s.stochK>s.stochD)  e+=1;
+    // ≥80: aşırı alım — 0 puan
+  }
+
+  // Bollinger — fiyat konumu (max 1p)
+  if(s.bbLow!=null&&s.bbBasis!=null&&s.price>0){
+    p+=1;
+    if(s.price<=s.bbLow)        e+=1;   // alt bant kırığı — dip fırsatı
+    else if(s.price<s.bbBasis)  e+=0.6; // orta bandın altı — değer bölgesi
+  }
+
+  // Hacim teyidi — relVol (bugünkü hacim / 10g ortalaması) (max 1p)
+  // Yükselen fiyata yüksek hacim eşlik ediyorsa hareket güvenilir
+  if(s.relVol!=null&&s.change!=null){
+    p+=1;
+    if(s.change>0&&s.relVol>=1.5)      e+=1;   // yükseliş + güçlü hacim teyidi
+    else if(s.change>0&&s.relVol>=1.0) e+=0.6; // yükseliş + normal hacim
+    else if(s.relVol>=1.2)             e+=0.3; // ilgi var ama yön belirsiz
+  }
+
+  // Aroon — trend yaşı/gücü (max 0.5p)
+  if(s.aroonUp!=null&&s.aroonDn!=null){
+    p+=0.5;
+    if(s.aroonUp>=70&&s.aroonUp>s.aroonDn) e+=0.5;  // taze yükseliş trendi
+    else if(s.aroonUp>s.aroonDn)           e+=0.25;
+  }
+
+  if(p===0) return 5;
+  return Math.max(0, Math.min(10, (e/p)*10));
+}
+
+// ── 2. DEĞERLEME (0–10) ──────────────────────────────────────────────────────
+// BIST'e özgü eşikler: enflasyon ortamında F/K <10 normal kabul edilir
+function scoreValuation(s){
+  let e=0, p=0;
+
+  // F/K (max 3p)
+  if(s.pe!=null&&s.pe>0){
+    p+=3;
+    if(s.pe<5)           e+=3;
+    else if(s.pe<10)     e+=2.5;
+    else if(s.pe<18)     e+=1.5;
+    else if(s.pe<30)     e+=0.5;
+    // ≥30: pahalı — 0 puan
+  } else if(s.pe!=null&&s.pe<0){ p+=3; } // zarar eden: 0/3
+
+  // PD/DD (max 3p)
+  if(s.pb!=null&&s.pb>0){
+    p+=3;
+    if(s.pb<0.7)         e+=3;
+    else if(s.pb<1.2)    e+=2.5;
+    else if(s.pb<2.5)    e+=1.5;
+    else if(s.pb<4)      e+=0.5;
+  }
+
+  // EV/EBITDA (max 2p)
+  if(s.evEbitda!=null&&s.evEbitda>0){
+    p+=2;
+    if(s.evEbitda<4)     e+=2;
+    else if(s.evEbitda<8)e+=1.5;
+    else if(s.evEbitda<15)e+=0.7;
+  }
+
+  // F/S (max 1p)
+  if(s.ps!=null&&s.ps>0){
+    p+=1;
+    if(s.ps<0.5)         e+=1;
+    else if(s.ps<1.5)    e+=0.7;
+    else if(s.ps<3)      e+=0.3;
+  }
+
+  // 52 hafta konumu (max 1p) — dibe yakın = potansiyel ucuzluk
+  if(s.hi52!=null&&s.lo52!=null&&s.hi52>s.lo52&&s.price>0){
+    p+=1;
+    const pos52=(s.price-s.lo52)/(s.hi52-s.lo52)*100;
+    if(pos52<20)         e+=1;
+    else if(pos52<40)    e+=0.7;
+    else if(pos52<60)    e+=0.3;
+    // ≥60: zirveye yakın — 0 puan
+  }
+
+  if(p===0) return 5;
+  return Math.max(0, Math.min(10, (e/p)*10));
+}
+
+// ── 3. KALİTE & KÂRLILIK (0–10) ─────────────────────────────────────────────
+function scoreQuality(s){
+  let e=0, p=0;
+
+  // ROE — özsermaye verimliliği (max 3p)
+  if(s.roe!=null){
+    p+=3;
+    if(s.roe>=30)        e+=3;
+    else if(s.roe>=20)   e+=2.5;
+    else if(s.roe>=12)   e+=1.8;
+    else if(s.roe>=6)    e+=0.8;
+    else if(s.roe>=0)    e+=0.2;
+    // <0: 0 puan
+  }
+
+  // ROA — varlık verimliliği (max 2p)
+  if(s.roa!=null){
+    p+=2;
+    if(s.roa>=15)        e+=2;
+    else if(s.roa>=8)    e+=1.5;
+    else if(s.roa>=3)    e+=0.8;
+    else if(s.roa>=0)    e+=0.2;
+  }
+
+  // Net kar marjı (max 2p)
+  if(s.netMargin!=null){
+    p+=2;
+    if(s.netMargin>=25)  e+=2;
+    else if(s.netMargin>=15) e+=1.6;
+    else if(s.netMargin>=8)  e+=1;
+    else if(s.netMargin>=3)  e+=0.4;
+    else if(s.netMargin>=0)  e+=0.1;
+  }
+
+  // Brüt marj (max 2p)
+  if(s.grossMargin!=null){
+    p+=2;
+    if(s.grossMargin>=50)    e+=2;
+    else if(s.grossMargin>=35)e+=1.6;
+    else if(s.grossMargin>=20)e+=1;
+    else if(s.grossMargin>=8) e+=0.4;
+  }
+
+  // Faaliyet marjı (max 1p)
+  if(s.opMargin!=null){
+    p+=1;
+    if(s.opMargin>=20)       e+=1;
+    else if(s.opMargin>=10)  e+=0.7;
+    else if(s.opMargin>=3)   e+=0.35;
+    else if(s.opMargin>=0)   e+=0.1;
+  }
+
+  // ROIC — yatırılan sermaye getirisi (max 2p)
+  // Buffett'in en değer verdiği metrik: şirket sermayesini ne kadar verimli kullanıyor
+  if(s.roic!=null){
+    p+=2;
+    if(s.roic>=20)      e+=2;
+    else if(s.roic>=12) e+=1.5;
+    else if(s.roic>=8)  e+=1;
+    else if(s.roic>=0)  e+=0.3;
+    // <0: değer yok ediyor — 0 puan
+  }
+
+  if(p===0) return 5;
+  return Math.max(0, Math.min(10, (e/p)*10));
+}
+
+// ── 4. FİNANSAL SAĞLIK (0–10) ───────────────────────────────────────────────
+function scoreHealth(s){
+  let e=0, p=0;
+
+  // Borç/Özkaynak (max 3p) — BIST'te en kritik kriter
+  if(s.debt!=null){
+    p+=3;
+    if(s.debt<0.15)      e+=3;
+    else if(s.debt<0.4)  e+=2.5;
+    else if(s.debt<0.8)  e+=1.8;
+    else if(s.debt<1.5)  e+=0.9;
+    else if(s.debt<2.5)  e+=0.3;
+    // ≥2.5: 0 puan
+  }
+
+  // Cari oran (max 2p)
+  if(s.currentRatio!=null){
+    p+=2;
+    if(s.currentRatio>=2.5)      e+=2;
+    else if(s.currentRatio>=1.8) e+=1.7;
+    else if(s.currentRatio>=1.2) e+=1.1;
+    else if(s.currentRatio>=1.0) e+=0.4;
+    // <1: 0 puan
+  }
+
+  // Asit-test oranı (max 2p)
+  if(s.quickRatio!=null){
+    p+=2;
+    if(s.quickRatio>=2)       e+=2;
+    else if(s.quickRatio>=1.2)e+=1.6;
+    else if(s.quickRatio>=0.8)e+=0.9;
+    else if(s.quickRatio>=0.5)e+=0.3;
+  }
+
+  // Nakit / Toplam varlık oranı (max 2p)
+  if(s.cash!=null&&s.totalAssets!=null&&s.totalAssets>0){
+    p+=2;
+    const cr=s.cash/s.totalAssets;
+    if(cr>=0.25)        e+=2;
+    else if(cr>=0.15)   e+=1.5;
+    else if(cr>=0.08)   e+=0.9;
+    else if(cr>=0.03)   e+=0.3;
+  }
+
+  // Net nakit pozisyonu (max 1p)
+  if(s.totalDebt!=null&&s.cash!=null){
+    p+=1;
+    if(s.cash>s.totalDebt)    e+=1;
+    else if(s.cash>s.totalDebt*0.7) e+=0.4;
+  }
+
+  // Serbest Nakit Akışı (FCF) pozitif mi (max 2p)
+  // Kâr muhasebesel olabilir; FCF gerçek nakit üretimini gösterir — en dürüst sağlık sinyali
+  // Öncelik: doğrudan FCF marjı alanı; yoksa FCF/gelir hesabı; yoksa FCF işareti
+  if(s.fcfMargin!=null){
+    p+=2;
+    if(s.fcfMargin>=15)     e+=2;    // güçlü nakit üretimi
+    else if(s.fcfMargin>=5) e+=1.5;
+    else if(s.fcfMargin>0)  e+=1;    // pozitif ama düşük
+    // ≤0: nakit yakıyor — 0 puan
+  } else if(s.fcf!=null){
+    p+=2;
+    if(s.fcf>0&&s.totalRev!=null&&s.totalRev>0){
+      const fcfMargin=s.fcf/s.totalRev;
+      if(fcfMargin>=0.15)     e+=2;
+      else if(fcfMargin>=0.05)e+=1.5;
+      else                    e+=1;
+    } else if(s.fcf>0)        e+=1.5;
+    // FCF<0: 0 puan
+  }
+
+  if(p===0) return 5;
+  return Math.max(0, Math.min(10, (e/p)*10));
+}
+function scoreRisk(s){
+  let e=0, p=0;
+
+  // Ortalama günlük hacim (max 3p) — düşük hacim = tuzak
+  if(s.avgvol!=null){
+    p+=3;
+    if(s.avgvol>=10000000)      e+=3;
+    else if(s.avgvol>=3000000)  e+=2.5;
+    else if(s.avgvol>=1000000)  e+=1.8;
+    else if(s.avgvol>=300000)   e+=1;
+    else if(s.avgvol>=100000)   e+=0.4;
+    // <100K: 0 puan
+  }
+
+  // Günlük volatilite (max 3p) — düşük = güvenli
+  if(s.volaD!=null){
+    p+=3;
+    if(s.volaD<1.0)       e+=3;
+    else if(s.volaD<2.0)  e+=2.5;
+    else if(s.volaD<3.0)  e+=1.6;
+    else if(s.volaD<4.5)  e+=0.7;
+    // ≥4.5: 0 puan
+  }
+
+  // Beta (max 2p)
+  if(s.beta!=null){
+    p+=2;
+    if(s.beta>=0.4&&s.beta<=0.9)     e+=2;   // defansif-piyasa arası ideal
+    else if(s.beta>0.9&&s.beta<=1.2) e+=1.5; // piyasayla paralel
+    else if(s.beta<0.4)              e+=1.2;  // çok defansif
+    else if(s.beta>1.2&&s.beta<=1.6) e+=0.5;
+    // >1.6 veya negatif: 0 puan
+  }
+
+  // Piyasa değeri (max 2p) — büyük şirket = daha güvenli
+  if(s.mcap!=null){
+    p+=2;
+    if(s.mcap>=1e11)       e+=2;
+    else if(s.mcap>=2e10)  e+=1.7;
+    else if(s.mcap>=5e9)   e+=1.2;
+    else if(s.mcap>=1e9)   e+=0.6;
+    else if(s.mcap>=2e8)   e+=0.2;
+    // <200M TL: 0 puan
+  }
+
+  if(p===0) return 5;
+  return Math.max(0, Math.min(10, (e/p)*10));
+}
+
+// ─── MOD AĞIRLIKLARI (toplam her modda tam 1.00) ─────────────────────────────
+const MODES = {
+  short: { label:"⚡ Kısa Vade", desc:"Günler-haftalar", w:{t:0.45,v:0.15,q:0.10,h:0.10,r:0.20} },
+  mid:   { label:"📅 Orta Vade", desc:"1-6 ay",          w:{t:0.25,v:0.25,q:0.20,h:0.20,r:0.10} },
+  long:  { label:"🏛️ Uzun Vade", desc:"1 yıl+",          w:{t:0.10,v:0.25,q:0.30,h:0.30,r:0.05} }
+};
+let currentMode = localStorage.getItem("bist_mode") || "mid";
+function setMode(m){
+  currentMode=m;
+  localStorage.setItem("bist_mode",m);
+  document.querySelectorAll(".mode-btn").forEach(b=>b.classList.toggle("active",b.dataset.mode===m));
+  if(STOCKS.length) render();
+}
+
+// GENEL PUAN
+// raw = ham float (sıralama için), total = yuvarlanmış int (gösterim için)
+function totalScore(s){
+  const t=scoreTechnical(s), v=scoreValuation(s), q=scoreQuality(s),
+        h=scoreHealth(s),    r=scoreRisk(s);
+  const w=MODES[currentMode].w;
+  const raw = t*w.t + v*w.v + q*w.q + h*w.h + r*w.r;
+  return {
+    raw,
+    total:    Math.min(10, Math.max(0, Math.round(raw))),
+    technical:Math.round(t), valuation:Math.round(v),
+    quality:  Math.round(q), health:   Math.round(h),
+    risk:     Math.round(r)
+  };
+}
+
+// ─── DETAYLI ANALİZ METİNLERİ ─────────────────────────────────────────────
+
+function analyzeTechnical(s){
+  const items=[];
+  const buys=[s.rd,s.rw,s.rm].filter(x=>x!=null&&x>=0.1).length;
+  if(buys===3) items.push(["pos","3/3 vadede AL — kısa, orta ve uzun vadede trend uyumu güçlü."]);
+  else if(buys===2) items.push(["neu","2/3 vadede AL — kısmi trend uyumu."]);
+  else if(buys===1) items.push(["neg","Yalnızca 1 vadede AL sinyali — zayıf trend."]);
+  else items.push(["neg","Hiçbir vadede AL sinyali yok."]);
+
+  if(s.rsi!=null){
+    if(s.rsi>=70) items.push(["neg","RSI "+s.rsi.toFixed(0)+" — aşırı alım bölgesi, kısa vadeli düzeltme riski yüksek."]);
+    else if(s.rsi>=60) items.push(["neu","RSI "+s.rsi.toFixed(0)+" — güçlü momentum, henüz aşırı alım değil."]);
+    else if(s.rsi<=30) items.push(["pos","RSI "+s.rsi.toFixed(0)+" — aşırı satım! Teknik dip alım fırsatı olabilir."]);
+    else if(s.rsi<=40) items.push(["neu","RSI "+s.rsi.toFixed(0)+" — zayıf momentum ama sınır bölgede."]);
+    else items.push(["neu","RSI "+s.rsi.toFixed(0)+" — nötr bölge (40-60)."]);
+  }
+  if(s.macd!=null&&s.macds!=null){
+    const diff=(s.macd-s.macds);
+    items.push(s.macd>s.macds?["pos","MACD sinyalin üzerinde (+"+Math.abs(diff).toFixed(3)+") — yukarı momentum."]:["neg","MACD sinyalin altında ("+diff.toFixed(3)+") — aşağı baskı."]);
+  }
+  if(s.stochK!=null){
+    if(s.stochK<20) items.push(["pos","Stochastic %K="+s.stochK.toFixed(0)+" — aşırı satım bölgesinde, dönüş sinyali izle."]);
+    else if(s.stochK>80) items.push(["neg","Stochastic %K="+s.stochK.toFixed(0)+" — aşırı alım, dikkatli ol."]);
+    if(s.stochD!=null&&s.stochK>s.stochD) items.push(["pos","Stoch K > D: pozitif kesişim (al sinyali)."]);
+  }
+  if(s.sma50&&s.sma200){
+    if(s.sma50>s.sma200) items.push(["pos","Golden Cross: 50 günlük SMA, 200 günlüğün üzerinde — uzun vadeli yükseliş trendi."]);
+    else items.push(["neg","Death Cross: 50 günlük SMA, 200 günlüğün altında — uzun vadeli düşüş trendi."]);
+    if(s.price>s.sma50&&s.price>s.sma200) items.push(["pos","Fiyat hem 50 hem 200 günlük ortalamanın üzerinde — güçlü trend dizilimi."]);
+    else if(s.price<s.sma50&&s.price<s.sma200) items.push(["neg","Fiyat her iki ortalamanın altında — zayıf trend."]);
+  }
+  if(s.adx!=null) items.push(["neu","ADX="+s.adx.toFixed(0)+(s.adx>=25?": Trend güçlü (25+).":s.adx>=20?": Orta güç.":" — Trend zayıf/yatay piyasa.")]);
+  if(s.bbUp&&s.bbLow&&s.bbBasis){
+    const bbPct=((s.price-s.bbLow)/(s.bbUp-s.bbLow)*100);
+    if(s.price<s.bbLow) items.push(["pos","Fiyat Bollinger alt bandının altında — sıkıştırma/dip fırsatı."]);
+    else if(s.price>s.bbUp) items.push(["neg","Fiyat Bollinger üst bandının üzerinde — aşırı gerilme."]);
+    else items.push(["neu","Bollinger bant içinde (%"+bbPct.toFixed(0)+" konumu)."]);
+  }
+  if(s.hi52&&s.lo52&&s.hi52>s.lo52){
+    const p52=((s.price-s.lo52)/(s.hi52-s.lo52)*100);
+    if(p52>=90) items.push(["neg","52h zirvesine çok yakın (%"+p52.toFixed(0)+") — yükseliş alanı daralıyor."]);
+    else if(p52<=15) items.push(["pos","52h dibine yakın (%"+p52.toFixed(0)+") — potansiyel değer/dip fırsatı."]);
+    else items.push(["neu","52 hafta bandının %"+p52.toFixed(0)+" noktasında."]);
+  }
+  return items;
+}
+
+function analyzeValuation(s){
+  const items=[];
+  if(s.pe!=null){
+    if(s.pe<0) items.push(["neg","F/K negatif — şirket zarar ediyor (yatırımcı için yüksek risk)."]);
+    else if(s.pe<8) items.push(["pos","F/K="+s.pe.toFixed(1)+" — tarihsel ortalamanın çok altında, çok ucuz sayılır."]);
+    else if(s.pe<15) items.push(["pos","F/K="+s.pe.toFixed(1)+" — makul altı, değer yatırımı açısından cazip."]);
+    else if(s.pe<25) items.push(["neu","F/K="+s.pe.toFixed(1)+" — piyasa ortalamasında."]);
+    else items.push(["neg","F/K="+s.pe.toFixed(1)+" — pahalı, beklentiler çok yüksek fiyatlanmış."]);
+  }
+  if(s.pb!=null&&s.pb>0){
+    if(s.pb<1) items.push(["pos","PD/DD="+s.pb.toFixed(2)+" — defter değerinin altında işlem görüyor, teorik güvenlik marjı var."]);
+    else if(s.pb<2) items.push(["pos","PD/DD="+s.pb.toFixed(2)+" — makul, defter değerine yakın."]);
+    else if(s.pb<4) items.push(["neu","PD/DD="+s.pb.toFixed(2)+" — normal aralık."]);
+    else items.push(["neg","PD/DD="+s.pb.toFixed(2)+" — defter değerine göre pahalı."]);
+  }
+  if(s.evEbitda!=null&&s.evEbitda>0){
+    if(s.evEbitda<8) items.push(["pos","EV/EBITDA="+s.evEbitda.toFixed(1)+" — düşük çarpan, şirket ucuz."]);
+    else if(s.evEbitda<15) items.push(["neu","EV/EBITDA="+s.evEbitda.toFixed(1)+" — makul."]);
+    else items.push(["neg","EV/EBITDA="+s.evEbitda.toFixed(1)+" — yüksek çarpan."]);
+  }
+  if(s.ps!=null&&s.ps>0){
+    if(s.ps<1) items.push(["pos","F/S="+s.ps.toFixed(2)+" — satışların altında işlem görüyor, çok ucuz."]);
+    else if(s.ps<3) items.push(["neu","F/S="+s.ps.toFixed(2)+" — makul."]);
+    else items.push(["neg","F/S="+s.ps.toFixed(2)+" — yüksek."]);
+  }
+  if(s.pfcf!=null&&s.pfcf>0) items.push(s.pfcf<15?["pos","F/Serbest Nakit Akışı="+s.pfcf.toFixed(1)+" — serbest nakde göre ucuz."]:["neu","F/Serbest Nakit Akışı="+s.pfcf.toFixed(1)+"."]);
+  if(s.div) items.push(["pos","Temettü verimi %"+s.div.toFixed(1)+" — nakit getirisi mevcut."]);
+  return items;
+}
+
+function analyzeQuality(s){
+  const items=[];
+  if(s.roe!=null){
+    if(s.roe>=25) items.push(["pos","ROE=%"+s.roe.toFixed(0)+" — mükemmel (Buffett kriteri: 15%+ sürdürülebilir ROE)."]);
+    else if(s.roe>=15) items.push(["pos","ROE=%"+s.roe.toFixed(0)+" — iyi, sermayeyi verimli kullanıyor."]);
+    else if(s.roe>=8) items.push(["neu","ROE=%"+s.roe.toFixed(0)+" — orta seviye."]);
+    else if(s.roe<0) items.push(["neg","ROE=%"+s.roe.toFixed(0)+" — özsermaye eritiyor, karlılık sorunu."]);
+    else items.push(["neu","ROE=%"+s.roe.toFixed(0)+" — düşük, sermaye verimliliği zayıf."]);
+  }
+  if(s.roa!=null){
+    if(s.roa>=10) items.push(["pos","ROA=%"+s.roa.toFixed(0)+" — varlıkları çok verimli kullanıyor."]);
+    else if(s.roa>=5) items.push(["neu","ROA=%"+s.roa.toFixed(0)+" — orta."]);
+    else if(s.roa<0) items.push(["neg","ROA=%"+s.roa.toFixed(0)+" — varlıklar üretken değil."]);
+  }
+  if(s.netMargin!=null){
+    if(s.netMargin>=20) items.push(["pos","Net kar marjı %"+s.netMargin.toFixed(1)+" — güçlü karlılık."]);
+    else if(s.netMargin>=10) items.push(["neu","Net kar marjı %"+s.netMargin.toFixed(1)+" — makul."]);
+    else if(s.netMargin>=0) items.push(["neu","Net kar marjı %"+s.netMargin.toFixed(1)+" — düşük."]);
+    else items.push(["neg","Net kar marjı %"+s.netMargin.toFixed(1)+" — zarar ediyor."]);
+  }
+  if(s.grossMargin!=null){
+    if(s.grossMargin>=40) items.push(["pos","Brüt marj %"+s.grossMargin.toFixed(1)+" — güçlü maliyet kontrolü ve fiyatlandırma gücü."]);
+    else if(s.grossMargin>=20) items.push(["neu","Brüt marj %"+s.grossMargin.toFixed(1)+" — makul."]);
+    else items.push(["neg","Brüt marj %"+s.grossMargin.toFixed(1)+" — düşük, rekabet baskısı hissedilebilir."]);
+  }
+  if(s.opMargin!=null){
+    if(s.opMargin>=15) items.push(["pos","Faaliyet marjı %"+s.opMargin.toFixed(1)+" — operasyonel verimlilik yüksek."]);
+    else if(s.opMargin<0) items.push(["neg","Faaliyet marjı negatif (%"+s.opMargin.toFixed(1)+") — işletme giderleri geliri aşıyor."]);
+  }
+  if(s.eps!=null) items.push(s.eps>0?["pos","Hisse başı kazanç (EPS): "+s.eps.toFixed(2)+" TL — kâr ediyor."]:["neg","Hisse başı kazanç negatif: "+s.eps.toFixed(2)+" TL — zarar."]);
+  if(s.roic!=null){
+    if(s.roic>=15) items.push(["pos","ROIC=%"+s.roic.toFixed(0)+" — yatırılan sermayeyi mükemmel getiriye çeviriyor (kalite göstergesi)."]);
+    else if(s.roic>=8) items.push(["neu","ROIC=%"+s.roic.toFixed(0)+" — sermaye verimliliği makul."]);
+    else if(s.roic<0) items.push(["neg","ROIC=%"+s.roic.toFixed(0)+" — yatırılan sermaye değer kaybediyor."]);
+  }
+  return items;
+}
+
+function analyzeHealth(s){
+  const items=[];
+  if(s.debt!=null){
+    if(s.debt<=0.3) items.push(["pos","Borç/Özkaynak="+s.debt.toFixed(2)+" — çok düşük borç, finansal esneklik güçlü."]);
+    else if(s.debt<=0.8) items.push(["pos","Borç/Özkaynak="+s.debt.toFixed(2)+" — sağlıklı borç seviyesi."]);
+    else if(s.debt<=1.5) items.push(["neu","Borç/Özkaynak="+s.debt.toFixed(2)+" — orta, yönetilebilir."]);
+    else if(s.debt<=3) items.push(["neg","Borç/Özkaynak="+s.debt.toFixed(2)+" — yüksek borç yükü, faiz giderlerine dikkat."]);
+    else items.push(["neg","Borç/Özkaynak="+s.debt.toFixed(2)+" — çok yüksek borç — finansal risk!"]);
+  }
+  if(s.currentRatio!=null){
+    if(s.currentRatio>=2) items.push(["pos","Cari oran="+s.currentRatio.toFixed(2)+" — kısa vadeli borçları rahatça karşılıyor."]);
+    else if(s.currentRatio>=1.5) items.push(["neu","Cari oran="+s.currentRatio.toFixed(2)+" — yeterli likidite."]);
+    else if(s.currentRatio>=1) items.push(["neu","Cari oran="+s.currentRatio.toFixed(2)+" — sınırda, dikkat."]);
+    else items.push(["neg","Cari oran="+s.currentRatio.toFixed(2)+" — kısa vadeli ödeme güçlüğü riski!"]);
+  }
+  if(s.quickRatio!=null){
+    items.push(s.quickRatio>=1?["pos","Asit-test oranı="+s.quickRatio.toFixed(2)+" — stoksuz likidite güçlü."]:["neu","Asit-test oranı="+s.quickRatio.toFixed(2)+" — stoksuz likidite sınırlı."]);
+  }
+  if(s.cash!=null&&s.totalAssets!=null&&s.totalAssets>0){
+    const cr=(s.cash/s.totalAssets*100);
+    items.push(cr>=10?["pos","Nakit/Toplam varlık: %"+cr.toFixed(0)+" — güçlü nakit rezervi."]:["neu","Nakit/Toplam varlık: %"+cr.toFixed(0)+"."]);
+  }
+  if(s.totalDebt!=null&&s.cash!=null){
+    const netDebt=s.totalDebt-s.cash;
+    if(netDebt<0) items.push(["pos","Net nakit pozisyonu: şirket borcundan fazla nakit tutuyor (güçlü bilanço)."]);
+    else items.push(["neu","Net borç: "+(netDebt/1e9).toFixed(2)+" milyar TL."]);
+  }
+  if(s.fcf!=null){
+    if(s.fcf>0&&s.totalRev!=null&&s.totalRev>0){
+      const fm=(s.fcf/s.totalRev*100);
+      items.push(fm>=10?["pos","Serbest nakit akışı pozitif (gelir marjı %"+fm.toFixed(0)+") — gerçek nakit üretiyor."]:["neu","Serbest nakit akışı pozitif (gelir marjı %"+fm.toFixed(0)+")."]);
+    } else if(s.fcf>0) items.push(["pos","Serbest nakit akışı pozitif — faaliyetlerden nakit üretiyor."]);
+    else items.push(["neg","Serbest nakit akışı negatif — nakit yakıyor, dış finansmana bağımlı olabilir."]);
+  }
+  return items;
+}
+
+function analyzeRisk(s){
+  const items=[];
+  if(s.volaD!=null){
+    if(s.volaD<2) items.push(["pos","Günlük volatilite %"+s.volaD.toFixed(1)+" — düşük, istikrarlı fiyat hareketi."]);
+    else if(s.volaD<4) items.push(["neu","Günlük volatilite %"+s.volaD.toFixed(1)+" — normal."]);
+    else items.push(["neg","Günlük volatilite %"+s.volaD.toFixed(1)+" — yüksek, stop-loss şart."]);
+  }
+  if(s.beta!=null){
+    if(s.beta<0.5) items.push(["pos","Beta="+s.beta.toFixed(2)+" — piyasadan çok bağımsız hareket (defansif)."]);
+    else if(s.beta<0.8) items.push(["pos","Beta="+s.beta.toFixed(2)+" — piyasadan daha sakin (defansif)."]);
+    else if(s.beta<=1.2) items.push(["neu","Beta="+s.beta.toFixed(2)+" — piyasayla paralel hareket."]);
+    else if(s.beta<=1.5) items.push(["neg","Beta="+s.beta.toFixed(2)+" — piyasadan oynak (agresif)."]);
+    else items.push(["neg","Beta="+s.beta.toFixed(2)+" — çok yüksek oynaklık (spekülatif)."]);
+  }
+  if(s.avgvol!=null){
+    if(s.avgvol>=1000000) items.push(["pos","Ort. günlük hacim "+(s.avgvol/1e6).toFixed(1)+"M — yüksek likidite, kolay alım-satım."]);
+    else if(s.avgvol>=500000) items.push(["neu","Ort. günlük hacim "+(s.avgvol/1e3).toFixed(0)+"K — yeterli likidite."]);
+    else items.push(["neg","Düşük günlük hacim "+(s.avgvol/1e3).toFixed(0)+"K — likidite riski, kayma yaşanabilir."]);
+  }
+  if(s.vol!=null&&s.avgvol!=null&&s.avgvol>0){
+    const volRatio=s.vol/s.avgvol;
+    if(volRatio>2) items.push(["neu","Bugünkü hacim ortalamanın "+volRatio.toFixed(1)+"x katı — olağandışı işlem/haber olabilir."]);
+  }
+  if(s.mcap!=null){
+    if(s.mcap>=1e10) items.push(["pos","Piyasa değeri "+(s.mcap/1e9).toFixed(1)+"M TL — büyük şirket (lower risk)."]);
+    else if(s.mcap<5e8) items.push(["neg","Piyasa değeri "+(s.mcap/1e6).toFixed(0)+"M TL — küçük şirket (higher risk)."]);
+  }
+  // Getiriler
+  [["1 ay",s.p1m],["3 ay",s.p3m],["6 ay",s.p6m],["1 yıl",s.py],["YTD",s.pYtd]].forEach(([l,v])=>{
+    if(v!=null) items.push([v>0?"pos":"neg",l+" getiri: "+(v>=0?"+":"")+v.toFixed(1)+"%"]);
+  });
+  return items;
+}
+
+// TüM ANALİZ
+function fullAnalyze(s){return{
+  technical:analyzeTechnical(s),
+  valuation:analyzeValuation(s),
+  quality:analyzeQuality(s),
+  health:analyzeHealth(s),
+  risk:analyzeRisk(s)
+};}
+
+function headlineTxt(s,sc){
+  const total=sc.total;
+  if(total>=8) return["pos","🚀 Güçlü alım adayı ("+total+"/10)"];
+  if(total>=6) return["pos","✅ Olumlu görünüm ("+total+"/10)"];
+  if(total>=4) return["neu","⚡ Karışık sinyaller ("+total+"/10)"];
+  return["neg","⚠️ Zayıf görünüm ("+total+"/10)"];
+}
+
+function recLabel(v){
+  if(v==null)return["—","#374151","#9ca3af"];
+  if(v>=0.5)return["GÜÇLÜ AL","#15803d","#fff"];
+  if(v>=0.1)return["AL","#16a34a","#fff"];
+  if(v>-0.1)return["NÖTR","#374151","#9ca3af"];
+  if(v>-0.5)return["SAT","#b91c1c","#fff"];
+  return["GÜÇLÜ SAT","#7f1d1d","#fff"];
+}
+
+// ─── BIST 30 Hisseleri (Haziran 2025 itibarıyla resmi liste) ─────────────────
+// ─── Temettü Skoru (0–100, normalize edilmiş) ────────────────────────────────
+// Sadece temettü veren hisseler değerlendirilir.
+// Veri eksikse o kriter hesaba girmez (mümkün puandan düşülür).
+function scoreDividend(s){
+  if(s.div==null||s.div<=0) return 0;
+
+  let e=0, p=0;
+
+  // Temettü verimi (max 35p) — temel kriter
+  p+=35;
+  if(s.div>=12)       e+=35;
+  else if(s.div>=8)   e+=30;
+  else if(s.div>=5)   e+=23;
+  else if(s.div>=3)   e+=16;
+  else if(s.div>=1.5) e+=9;
+  else                e+=3;
+
+  // Dağıtım oranı (payout ratio) — SÜRDÜRÜLEBİLİRLİĞİN EN KRİTİK göstergesi (max 15p)
+  // Kârın %30-60'ını dağıtmak ideal; %100+ dağıtım borçla ödeme demek = sürdürülemez
+  if(s.payout!=null&&s.payout>0){
+    p+=15;
+    if(s.payout>=30&&s.payout<=60)      e+=15;  // ideal denge
+    else if(s.payout>60&&s.payout<=80)  e+=11;  // cömert ama sürdürülebilir
+    else if(s.payout>=15&&s.payout<30)  e+=10;  // temkinli (büyüme payı yüksek)
+    else if(s.payout>80&&s.payout<=100) e+=6;   // gergin
+    else if(s.payout<15)                e+=5;   // çok düşük dağıtım
+    // >100: kârından fazla dağıtıyor — sürdürülemez, 0 puan
+  }
+
+  // ROE — temettünün kaynağı sağlam mı (max 18p)
+  if(s.roe!=null){
+    p+=18;
+    if(s.roe>=25)      e+=18;
+    else if(s.roe>=15) e+=14;
+    else if(s.roe>=8)  e+=7;
+    else if(s.roe>=0)  e+=2;
+  }
+
+  // Borç/ÖK — ödeme kapasitesi (max 17p)
+  if(s.debt!=null){
+    p+=17;
+    if(s.debt<0.2)     e+=17;
+    else if(s.debt<0.5)e+=14;
+    else if(s.debt<1.0)e+=9;
+    else if(s.debt<2.0)e+=3;
+    // >=2.0: 0 puan
+  }
+
+  // F/K — ucuzluk (max 8p)
+  if(s.pe!=null&&s.pe>0){
+    p+=8;
+    if(s.pe<8)         e+=8;
+    else if(s.pe<15)   e+=6;
+    else if(s.pe<25)   e+=2;
+  } else if(s.pe!=null){ p+=8; } // zarar eden: 0/8
+
+  // Serbest nakit akışı — temettüyü nakitle ödeyebiliyor mu (max 7p)
+  if(s.fcf!=null){
+    p+=7;
+    if(s.fcf>0)        e+=7;   // pozitif FCF = temettü nakitten ödeniyor
+    // FCF<0: temettü borçla/rezervle ödeniyor — riskli, 0 puan
+  }
+
+  // Normalize: kazanılan/mümkün * 100
+  return Math.min(100, Math.max(0, Math.round((e/p)*100)));
+}
+
+function getDivLabel(score){
+  if(score>=75) return["MÜKEMMEL","#15803d"];
+  if(score>=55) return["GÜÇLÜ","#16a34a"];
+  if(score>=35) return["ORTA","#ca8a04"];
+  return["ZAYIF","#b91c1c"];
+}
+
+
+// ─── Top N listesi (en sıkı alım kapısı) ────────────────────────────────────
+// Minimum kalite kapısı + finansal kırmızı bayrak elemesi:
+//   fiyat>0, hacim≥200K, en az 2 vadede AL, EPS≥0, F/K 0–40 arası,
+//   RSI<80, negatif FCF YOK, sürdürülemez temettü YOK, aşırı borç YOK,
+//   genel skor≥5
+function getTop(n=10){
+  return STOCKS
+    .filter(s=>{
+      if(!s.price||s.price<=0)        return false;
+      if(!s.avgvol||s.avgvol<200000)  return false;     // min likidite
+      // En az 2 vadede AL/GÜÇLÜ AL — trend uyumu şart
+      const buys=[s.rd,s.rw,s.rm].filter(x=>x!=null&&x>=0.1).length;
+      if(buys<2) return false;
+      // Zarar eden şirketi önerme (EPS<0 veya F/K<0)
+      if(s.eps!=null&&s.eps<0)  return false;
+      if(s.pe!=null&&s.pe<0)    return false;
+      // Aşırı pahalı (F/K çok yüksek) hisseyi alım adayı sayma
+      if(s.pe!=null&&s.pe>40)   return false;
+      // RSI aşırı alımda (≥80) olan hisseyi yeni alım önerisi yapma
+      if(s.rsi!=null&&s.rsi>=80) return false;
+      // KIRMIZI BAYRAK: negatif serbest nakit akışı — nakit yakan şirket
+      if(s.fcfMargin!=null&&s.fcfMargin<0) return false;
+      else if(s.fcfMargin==null&&s.fcf!=null&&s.fcf<0) return false;
+      // KIRMIZI BAYRAK: sürdürülemez temettü (kârından fazla dağıtım)
+      if(s.payout!=null&&s.payout>100) return false;
+      // KIRMIZI BAYRAK: aşırı borç (Borç/ÖK ≥ 3)
+      if(s.debt!=null&&s.debt>=3) return false;
+      return true;
+    })
+    .map(s=>{const sc=totalScore(s);return{s,sc};})
+    .filter(x=>x.sc.raw>=5)   // genel skoru 5'in altında olanı listeleme
+    .sort((a,b)=>{
+      if(Math.abs(b.sc.raw-a.sc.raw)>0.001) return b.sc.raw-a.sc.raw;
+      return (b.s.avgvol||0)-(a.s.avgvol||0); // eşitlik: yüksek hacim önce
+    })
+    .slice(0,n);
+}
+
+// ─── Skor halkası ────────────────────────────────────────────────────────────
+// total = gösterilen tam sayı (0-10), raw = halka dolgusu için hassas değer
+function scoreRingHTML(total,raw){
+  const fillVal=(raw!=null?raw:total);
+  const pct=Math.max(0,Math.min(1,fillVal/10));
+  const r=18,circ=2*Math.PI*r;
+  const dash=circ*pct;
+  const color=fillVal>=7?"#22c55e":fillVal>=5?"#f59e0b":"#f87171";
+  return `<div class="score-ring">
+    <svg width="44" height="44" viewBox="0 0 44 44">
+      <circle cx="22" cy="22" r="${r}" fill="none" stroke="#1a2540" stroke-width="4"/>
+      <circle cx="22" cy="22" r="${r}" fill="none" stroke="${color}" stroke-width="4"
+        stroke-dasharray="${dash.toFixed(1)} ${circ.toFixed(1)}" stroke-linecap="round"/>
+    </svg>
+    <div class="val" style="color:${color}">${total}<div class="lbl">/ 10</div></div>
+  </div>`;
+}
+
+// ─── Kart HTML ────────────────────────────────────────────────────────────────
+function buildCard(item,rank){
+  const s=item.s, sc=item.sc;
+  const[kd,kb]=recLabel(s.rd),[od,ob]=recLabel(s.rw),[ud,ub]=recLabel(s.rm);
+  const[ht,hx]=headlineTxt(s,sc);
+  const an=fullAnalyze(s);
+
+  // Kategori renkleri
+  const catColor=v=>v>=7?"#22c55e":v>=5?"#f59e0b":"#f87171";
+  const catBar=v=>`<div class="cs-bar" style="width:${v*10}%;background:${catColor(v)}"></div>`;
+
+  // Detay bölümü oluştur
+  const sections=[
+    {icon:"📈",title:"Teknik Analiz",key:"technical",score:sc.technical,items:an.technical},
+    {icon:"💰",title:"Değerleme",key:"valuation",score:sc.valuation,items:an.valuation},
+    {icon:"⭐",title:"Kalite & Kârlılık",key:"quality",score:sc.quality,items:an.quality},
+    {icon:"🏦",title:"Finansal Sağlık",key:"health",score:sc.health,items:an.health},
+    {icon:"⚡",title:"Likidite & Risk",key:"risk",score:sc.risk,items:an.risk},
+  ];
+  let detailHtml="";
+  sections.forEach(sec=>{
+    detailHtml+=`<div class="dsec">
+      <div class="dsec-title"><span>${sec.icon}</span>${sec.title} <span style="margin-left:auto;color:${catColor(sec.score)};font-size:12px;font-weight:900">${sec.score}/10</span></div>
+      ${sec.items.map(([t,x])=>`<div class="aitem"><span class="dot ${t}"></span><span>${esc(x)}</span></div>`).join("")}
+    </div>`;
+  });
+
+  // İstatistik tablosu
+  const p52=(s.hi52&&s.lo52&&s.hi52>s.lo52)?((s.price-s.lo52)/(s.hi52-s.lo52)*100).toFixed(0)+"%":"—";
+  const statsHtml=`<div class="dsec">
+    <div class="dsec-title"><span>📊</span>Tüm Göstergeler</div>
+    <div class="stats2">
+      ${[
+        ["Fiyat",s.price.toFixed(2)],["Değişim",(s.change>=0?"+":"")+s.change.toFixed(2)+"%"],
+        ["RSI",fmt(s.rsi,0)],["Stoch %K",fmt(s.stochK,0)],
+        ["MACD",fmt(s.macd,3)],["Sinyal",fmt(s.macds,3)],
+        ["ADX",fmt(s.adx,0)],["+DI/−DI",(s.adxPlus!=null&&s.adxMinus!=null)?(s.adxPlus.toFixed(0)+"/"+s.adxMinus.toFixed(0)):"—"],
+        ["SMA20",fmt(s.sma20)],["SMA50",fmt(s.sma50)],
+        ["SMA200",fmt(s.sma200)],["EMA20",fmt(s.ema20)],
+        ["EMA50",fmt(s.ema50)],["EMA200",fmt(s.ema200)],
+        ["52h %",p52],["Vol. Gün",fmt(s.volaD,1,"%")],
+        ["Beta",fmt(s.beta)],["Bağıl Hacim",fmt(s.relVol,2,"x")],
+        ["F/K",peTxt(s.pe)],["PD/DD",fmt(s.pb)],
+        ["EV/EBITDA",fmt(s.evEbitda,1)],["F/S",fmt(s.ps,2)],
+        ["F/FCF",fmt(s.pfcf,1)],["EPS",fmt(s.eps,2)],
+        ["ROE",s.roe!=null?"%"+s.roe.toFixed(0):"—"],["ROA",s.roa!=null?"%"+s.roa.toFixed(0):"—"],
+        ["ROIC",s.roic!=null?"%"+s.roic.toFixed(0):"—"],["Net Marj",s.netMargin!=null?"%"+s.netMargin.toFixed(1):"—"],
+        ["Brüt Marj",s.grossMargin!=null?"%"+s.grossMargin.toFixed(1):"—"],["FAVÖK Marj",s.ebitdaMargin!=null?"%"+s.ebitdaMargin.toFixed(1):"—"],
+        ["Borç/ÖK",fmt(s.debt)],["Cari Oran",fmt(s.currentRatio)],
+        ["Asit-Test",fmt(s.quickRatio)],["FCF",s.fcf!=null?(s.fcf>=0?"+":"")+(s.fcf/1e9).toFixed(2)+"B":"—"],
+        ["Temettü",s.div?"%"+s.div.toFixed(1):"—"],["Dağıtım Or.",s.payout!=null?"%"+s.payout.toFixed(0):"—"],
+        ["1ay",pct(s.p1m)],["3ay",pct(s.p3m)],
+        ["6ay",pct(s.p6m)],["1yıl",pct(s.py)],
+      ].map(([k,v])=>`<div class="srow"><span>${k}</span><b>${esc(v)}</b></div>`).join("")}
+    </div>
+  </div>`;
+
+  return `<div class="card">
+  <div class="card-head">
+    <div class="card-left">
+      ${rank!=null?`<span class="rank-badge">#${rank}</span>`:""}
+      <div><div class="sym">${esc(s.symbol)}</div><div class="company">${esc(s.name||"")}</div></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      ${scoreRingHTML(sc.total,sc.raw)}
+      <div class="price-block">
+        <div class="price">${s.price.toFixed(2)}</div>
+        <div class="chg ${s.change>=0?"up":"dn"}">${s.change>=0?"+":""}${s.change.toFixed(2)}%</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="vade-row">
+    <span class="vade-label">Kısa&nbsp;<span class="vpill" style="background:${kb}">${kd}</span></span>
+    <span class="vade-label">Orta&nbsp;<span class="vpill" style="background:${ob}">${od}</span></span>
+    <span class="vade-label">Uzun&nbsp;<span class="vpill" style="background:${ub}">${ud}</span></span>
+  </div>
+
+  <div class="cat-scores">
+    <div class="cat-score"><div class="cs-label">Teknik</div><div class="cs-val" style="color:${catColor(sc.technical)}">${sc.technical}</div>${catBar(sc.technical)}</div>
+    <div class="cat-score"><div class="cs-label">Değer</div><div class="cs-val" style="color:${catColor(sc.valuation)}">${sc.valuation}</div>${catBar(sc.valuation)}</div>
+    <div class="cat-score"><div class="cs-label">Kalite</div><div class="cs-val" style="color:${catColor(sc.quality)}">${sc.quality}</div>${catBar(sc.quality)}</div>
+    <div class="cat-score"><div class="cs-label">Sağlık</div><div class="cs-val" style="color:${catColor(sc.health)}">${sc.health}</div>${catBar(sc.health)}</div>
+    <div class="cat-score"><div class="cs-label">Risk</div><div class="cs-val" style="color:${catColor(sc.risk)}">${sc.risk}</div>${catBar(sc.risk)}</div>
+  </div>
+
+  <div class="quick-grid">
+    <div class="qm"><div class="ql">RSI</div><div class="qv">${s.rsi!=null?s.rsi.toFixed(0):"—"}</div></div>
+    <div class="qm"><div class="ql">F/K</div><div class="qv">${peTxt(s.pe)}</div></div>
+    <div class="qm"><div class="ql">ROE</div><div class="qv">${s.roe!=null?"%"+s.roe.toFixed(0):"—"}</div></div>
+    <div class="qm"><div class="ql">Borç/ÖK</div><div class="qv">${s.debt!=null?s.debt.toFixed(2):"—"}</div></div>
+  </div>
+
+  <div class="headline ${ht}">${hx}</div>
+
+  <div class="detail-toggle" onclick="toggleDetail('${s.symbol}',this)">
+    🔍 Detaylı analiz (5 kategori) <span class="arrow">▼</span>
+  </div>
+  <div class="detail-body" id="db_${s.symbol}">
+    ${detailHtml}
+    ${statsHtml}
+    <div class="ext-links">
+      <a class="ext-link" href="https://tr.tradingview.com/symbols/BIST-${s.symbol}/" target="_blank">TradingView</a>
+      <a class="ext-link" href="https://tr.investing.com/search/?q=${s.symbol}" target="_blank">Investing</a>
+      <a class="ext-link" href="https://www.kap.org.tr/tr/sirket-finansal-bilgileri/${s.symbol}" target="_blank">KAP</a>
+    </div>
+  </div>
+</div>`;
+}
+
+function toggleDetail(sym,btn){const b=document.getElementById("db_"+sym);const o=b.classList.toggle("open");btn.classList.toggle("open",o);}
+
+// ─── Tabs / render ────────────────────────────────────────────────────────────
+function switchTab(tab){
+  currentTab=tab;
+  document.querySelectorAll(".tab").forEach((t,i)=>t.classList.toggle("active",["top10","bist30","temettu","search","alarms"][i]===tab));
+  document.getElementById("searchWrap").style.display=tab==="search"?"block":"none";
+  if(tab==="search")setTimeout(()=>document.getElementById("search").focus(),100);
+  render();
+}
+function onSearch(){if(currentTab==="search")render();}
+
+function render(){
+  const c=document.getElementById("content");
+  if(!STOCKS.length)return;
+  if(currentTab==="top10"){
+    const list=getTop(10);
+    const modeBar=`<div class="mode-row">${Object.entries(MODES).map(([k,m])=>`<button class="mode-btn${currentMode===k?' active':''}" data-mode="${k}" onclick="setMode('${k}')">${m.label}<span class="mode-desc">${m.desc}</span></button>`).join('')}</div>`;
+    c.innerHTML=`<div class="disclaimer">⚠️ Yatırım tavsiyesi değildir.</div>`+modeBar+
+      `<div class="controls">
+        <label>Oto-yenile: <select id="auto" onchange="setAuto()">
+          <option value="0">Kapalı</option><option value="300">5 dk</option>
+          <option value="600">10 dk</option><option value="900" selected>15 dk</option>
+        </select></label>
+      </div>`+
+      `<div class="sec-hdr"><h2>🏆 En İyi 10 Alım Adayı</h2><span class="badge">${list.length}</span></div>`+
+      list.map((it,i)=>buildCard(it,i+1)).join("");
+    const sv=localStorage.getItem("bist_auto");if(sv){const el=document.getElementById("auto");if(el)el.value=sv;}
+  }else if(currentTab==="bist30"){
+    renderBist30();
+  }else if(currentTab==="temettu"){
+    renderTemettu();
+  }else if(currentTab==="search"){
+    const q=(document.getElementById("search").value||"").trim().toUpperCase();
+    if(!q){c.innerHTML=`<div class="empty"><span>🔎</span>Sembol veya şirket adı yaz</div>`;return;}
+    const list=STOCKS.filter(s=>s.symbol.includes(q)||(s.name||"").toUpperCase().includes(q))
+      .map(s=>{const sc=totalScore(s);return{s,sc};}).sort((a,b)=>b.sc.total-a.sc.total);
+    c.innerHTML=`<div class="sec-hdr"><h2>🔎 "${esc(q)}"</h2><span class="badge">${list.length}</span></div>`+
+      (list.length?list.map(it=>buildCard(it,null)).join(""):
+      `<div class="empty"><span>🤷</span>Bulunamadı</div>`);
+  }else{renderAlarms();}
+}
+
+// ─── BIST 30 Render ───────────────────────────────────────────────────────────
+function renderBist30(){
+  const c=document.getElementById("content");
+  // BIST 30 = piyasa değeri en büyük + likit 30 hisse (endeks tanımıyla birebir).
+  // Sabit liste tutmak yerine dinamik hesaplanır; her veri çekiminde güncel kalır.
+  const universe=STOCKS
+    .filter(s=>s.price>0 && s.mcap!=null && s.mcap>0 && s.avgvol!=null && s.avgvol>=500000)
+    .sort((a,b)=>b.mcap-a.mcap)   // önce piyasa değerine göre en büyük 30'u seç
+    .slice(0,30);
+  const list=universe
+    .map(s=>{const sc=totalScore(s);return{s,sc};})
+    .sort((a,b)=>{                  // sonra alım uygunluğuna (skor) göre sırala
+      if(Math.abs(b.sc.raw-a.sc.raw)>0.001) return b.sc.raw-a.sc.raw;
+      return (b.s.mcap||0)-(a.s.mcap||0);
+    });
+  const modeBar=`<div class="mode-row">${Object.entries(MODES).map(([k,m])=>`<button class="mode-btn${currentMode===k?' active':''}" data-mode="${k}" onclick="setMode('${k}')">${m.label}<span class="mode-desc">${m.desc}</span></button>`).join('')}</div>`;
+  c.innerHTML=`<div class="disclaimer">⚠️ Yatırım tavsiyesi değildir.</div>`+modeBar+
+    `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:9px 13px;margin-bottom:10px;font-size:10px;color:var(--muted);line-height:1.5;">📊 Piyasa değeri en büyük 30 hisse, alım skoruna göre sıralanır. Endeks her çeyrek değiştiği için liste otomatik güncellenir.</div>`+
+    `<div class="sec-hdr"><h2>📊 BIST 30 · Alım Sıralaması</h2><span class="badge">${list.length}</span></div>`+
+    (list.length?list.map((it,i)=>buildCard(it,i+1)).join(""):
+    `<div class="empty"><span>📊</span>BIST 30 verisi yükleniyor…</div>`);
+}
+
+// ─── Temettü Render ───────────────────────────────────────────────────────────
+function buildDivCard(s,rank){
+  const sc=totalScore(s);
+  const divScore=scoreDividend(s);
+  const [dlbl,dclr]=getDivLabel(divScore);
+  const catColor=v=>v>=7?"#22c55e":v>=5?"#f59e0b":"#f87171";
+  return `<div class="card">
+  <div class="card-head">
+    <div class="card-left">
+      <span class="rank-badge">#${rank}</span>
+      <div><div class="sym">${esc(s.symbol)}</div><div class="company">${esc(s.name||"")}</div></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div style="text-align:center;">
+        <div style="font-size:18px;font-weight:900;color:#f59e0b">${s.div!=null?"%"+s.div.toFixed(1):"—"}</div>
+        <div style="font-size:9px;color:var(--muted);">Temettü</div>
+      </div>
+      <div class="price-block">
+        <div class="price">${s.price.toFixed(2)}</div>
+        <div class="chg ${s.change>=0?"up":"dn"}">${s.change>=0?"+":""}${s.change.toFixed(2)}%</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:8px;padding:4px 13px 8px;">
+    <span style="background:${dclr};color:#fff;border-radius:999px;padding:3px 10px;font-size:10px;font-weight:800;">${dlbl}</span>
+    <span style="font-size:10px;color:var(--muted);">Temettü Skoru: <b style="color:var(--text)">${divScore}/100</b></span>
+  </div>
+
+  <div class="cat-scores">
+    <div class="cat-score"><div class="cs-label">F/K</div><div class="cs-val" style="color:${catColor(sc.valuation)}">${peTxt(s.pe)}</div></div>
+    <div class="cat-score"><div class="cs-label">ROE</div><div class="cs-val" style="color:${catColor(sc.quality)}">${s.roe!=null?"%"+s.roe.toFixed(0):"—"}</div></div>
+    <div class="cat-score"><div class="cs-label">Borç/ÖK</div><div class="cs-val" style="color:${catColor(sc.health)}">${s.debt!=null?s.debt.toFixed(2):"—"}</div></div>
+    <div class="cat-score"><div class="cs-label">Net Marj</div><div class="cs-val" style="color:${catColor(sc.quality)}">${s.netMargin!=null?"%"+s.netMargin.toFixed(0):"—"}</div></div>
+    <div class="cat-score"><div class="cs-label">Genel</div><div class="cs-val" style="color:${catColor(sc.total)}">${sc.total}/10</div></div>
+  </div>
+
+  <div class="quick-grid">
+    <div class="qm"><div class="ql">PD/DD</div><div class="qv">${fmt(s.pb)}</div></div>
+    <div class="qm"><div class="ql">EPS</div><div class="qv">${s.eps!=null?s.eps.toFixed(2):"—"}</div></div>
+    <div class="qm"><div class="ql">Cari Oran</div><div class="qv">${fmt(s.currentRatio)}</div></div>
+    <div class="qm"><div class="ql">Beta</div><div class="qv">${fmt(s.beta)}</div></div>
+  </div>
+
+  <div class="detail-toggle" onclick="toggleDetail('div_${s.symbol}',this)">
+    🔍 Detaylı analiz (5 kategori) <span class="arrow">▼</span>
+  </div>
+  <div class="detail-body" id="db_div_${s.symbol}">
+    <div class="dsec">
+      <div class="dsec-title"><span>💰</span>Temettü Detayı</div>
+      ${s.div!=null&&s.div>0?`<div class="aitem"><span class="dot pos"></span><span>Temettü verimi %${s.div.toFixed(2)} — nakit getiri mevcut.</span></div>`:`<div class="aitem"><span class="dot neg"></span><span>Temettü bilgisi bulunamadı.</span></div>`}
+      ${s.roe!=null&&s.roe>=15?`<div class="aitem"><span class="dot pos"></span><span>ROE=%${s.roe.toFixed(0)} — sürdürülebilir temettü için sağlam kârlılık.</span></div>`:""}
+      ${s.debt!=null&&s.debt<0.8?`<div class="aitem"><span class="dot pos"></span><span>Borç/ÖK=${s.debt.toFixed(2)} — düşük borç, temettü ödeme kapasitesi güçlü.</span></div>`:""}
+      ${s.debt!=null&&s.debt>=2?`<div class="aitem"><span class="dot neg"></span><span>Borç/ÖK=${s.debt.toFixed(2)} — yüksek borç, temettü sürekliliği riskli olabilir.</span></div>`:""}
+      ${s.netMargin!=null&&s.netMargin>0?`<div class="aitem"><span class="dot neu"></span><span>Net kar marjı %${s.netMargin.toFixed(1)}.</span></div>`:""}
+    </div>
+    <div class="ext-links">
+      <a class="ext-link" href="https://tr.tradingview.com/symbols/BIST-${s.symbol}/" target="_blank">TradingView</a>
+      <a class="ext-link" href="https://tr.investing.com/search/?q=${s.symbol}" target="_blank">Investing</a>
+      <a class="ext-link" href="https://www.kap.org.tr/tr/sirket-finansal-bilgileri/${s.symbol}" target="_blank">KAP</a>
+    </div>
+  </div>
+</div>`;
+}
+
+function renderTemettu(){
+  const c=document.getElementById("content");
+  const list=STOCKS
+    .filter(s=>s.div!=null&&s.div>=1.5&&s.price>0&&s.avgvol!=null&&s.avgvol>=200000)
+    .filter(s=>!(s.eps!=null&&s.eps<0))  // zarar eden şirket sürdürülebilir temettü ödeyemez
+    .map(s=>({s,divScore:scoreDividend(s)}))
+    .filter(x=>x.divScore>=15) // anlamlı temettü skoru eşiği
+    .sort((a,b)=>b.divScore-a.divScore)
+    .slice(0,20);
+  c.innerHTML=`<div class="disclaimer">⚠️ Yatırım tavsiyesi değildir.</div>`+
+    `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 13px;margin-bottom:10px;font-size:11px;color:var(--muted);line-height:1.6;">
+      💡 <b style="color:var(--text)">Temettü Skoru</b> nasıl hesaplanır? Temettü verimi (%40), ROE (%20), borç sağlığı (%20), F/K (%10), kar marjı (%10) — normalize edilmiş bileşik skor.
+    </div>`+
+    `<div class="sec-hdr"><h2>💰 En İyi 20 Temettü Hissesi</h2><span class="badge">${list.length}</span></div>`+
+    (list.length?list.map((it,i)=>buildDivCard(it.s,i+1)).join(""):
+    `<div class="empty"><span>💰</span>Temettü verisi bulunamadı</div>`);
+}
+
+// ─── Alarmlar ─────────────────────────────────────────────────────────────────
+function getAlarms(){try{return JSON.parse(localStorage.getItem("bist_alarms")||"[]");}catch(e){return[];}}
+function saveAlarms(a){localStorage.setItem("bist_alarms",JSON.stringify(a));}
+function addAlarm(){
+  const sym=document.getElementById("al_sym").value.trim().toUpperCase();
+  const dir=document.getElementById("al_dir").value;
+  const price=parseFloat(document.getElementById("al_price").value);
+  if(!sym||isNaN(price)){alert("Sembol ve fiyat gir.");return;}
+  const a=getAlarms();a.push({sym,dir,price});saveAlarms(a);
+  document.getElementById("al_sym").value="";document.getElementById("al_price").value="";renderAlarms();
+}
+function delAlarm(i){const a=getAlarms();a.splice(i,1);saveAlarms(a);renderAlarms();}
+function renderAlarms(){
+  const c=document.getElementById("content");
+  const alarms=getAlarms();
+  const fires=[];
+  alarms.forEach(x=>{const s=STOCKS.find(z=>z.symbol===x.sym);
+    if(s&&((x.dir==="below"&&s.price<=x.price)||(x.dir==="above"&&s.price>=x.price)))
+      fires.push(`${x.sym} ${x.dir==="below"?"↓":"↑"} ${x.price} hedefine ulaştı — şu an ${s.price.toFixed(2)}`);});
+  c.innerHTML=`<div class="alarm-add"><h3>🔔 Fiyat Alarmı Ekle</h3>
+    <div class="alarm-inputs">
+      <input id="al_sym" placeholder="Sembol (THYAO)" oninput="this.value=this.value.toUpperCase()">
+      <select id="al_dir"><option value="below">↓ Altına inerse</option><option value="above">↑ Üstüne çıkarsa</option></select>
+    </div>
+    <div class="alarm-inputs"><input id="al_price" type="number" step="0.01" placeholder="Hedef fiyat"><div></div></div>
+    <button class="btn-primary" onclick="addAlarm()">+ Alarm Ekle</button>
+    <button class="btn-secondary" onclick="askNotify()">🔔 Bildirim izni iste</button>
+  </div>`+
+  fires.map(f=>`<div class="alarm-fire">🔔 ${esc(f)}</div>`).join("")+
+  `<div class="sec-hdr"><h2>Aktif Alarmlar</h2><span class="badge">${alarms.length}</span></div>`+
+  (alarms.length?alarms.map((x,i)=>{const cur=STOCKS.find(s=>s.symbol===x.sym);
+    return`<div class="alarm-item"><div>
+      <div class="alarm-sym">${esc(x.sym)}</div>
+      <div class="alarm-info">${x.dir==="below"?"↓ altına":"↑ üstüne"} ${x.price} TL${cur?` <span class="alarm-cur">· şu an ${cur.price.toFixed(2)}</span>`:""}</div>
+    </div><button class="alarm-del" onclick="delAlarm(${i})">✕</button></div>`;}).join(""):
+  `<div class="empty"><span>🔕</span>Henüz alarm yok</div>`);
+}
+function askNotify(){if("Notification" in window)Notification.requestPermission();}
+function checkAlarmFires(){const a=getAlarms();const fires=[];
+  a.forEach(x=>{const s=STOCKS.find(z=>z.symbol===x.sym);if(!s)return;
+    if((x.dir==="below"&&s.price<=x.price)||(x.dir==="above"&&s.price>=x.price))fires.push(`${x.sym} hedefine ulaştı`);});
+  if(fires.length&&"Notification" in window&&Notification.permission==="granted")fires.forEach(f=>new Notification("TRADE ONE",{body:f}));}
+
+// ─── Yükleme ─────────────────────────────────────────────────────────────────
+async function load(){
+  document.getElementById("status").textContent="Taranıyor…";
+  document.getElementById("refreshBtn").textContent="…";
+  try{
+    STOCKS=await fetchAll();
+    const t=new Date().toLocaleTimeString("tr-TR",{hour:"2-digit",minute:"2-digit"});
+    document.getElementById("status").textContent=t+" · "+STOCKS.length+" hisse";
+    document.getElementById("refreshBtn").textContent="↻ Yenile";
+    document.getElementById("loader").style.display="none";
+    document.getElementById("content").style.display="block";
+    render();checkAlarmFires();
+  }catch(e){
+    document.getElementById("status").textContent="Hata";
+    document.getElementById("refreshBtn").textContent="↻ Yenile";
+    document.getElementById("loader").style.display="none";
+    document.getElementById("content").style.display="block";
+    document.getElementById("content").innerHTML=`<div class="error-box">
+      <p>📡 Veri alınamadı.<br><small>${esc(e.message)}</small></p>
+      <button onclick="load()">Tekrar Dene</button></div>`;
+  }
+}
+function setAuto(){const el=document.getElementById("auto");if(!el)return;
+  const sec=parseInt(el.value);localStorage.setItem("bist_auto",sec);
+  if(autoTimer)clearInterval(autoTimer);if(sec>0)autoTimer=setInterval(load,sec*1000);}
+load();
+</script>
+</body>
+</html>
