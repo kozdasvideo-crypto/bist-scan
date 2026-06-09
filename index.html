@@ -242,40 +242,38 @@ async function tvScan(){
   const TV_URL="https://scanner.tradingview.com/turkey/scan";
   const payload=JSON.stringify(body);
 
-  // Önce doğrudan (bazı tarayıcı/ağlarda CORS açık olabilir), olmazsa proxy'ler
+  // 1) ÖNCE kendi Netlify fonksiyonumuz (en hızlı + güvenilir, CORS yok)
+  // 2) olmazsa public proxy'ler (yedek)
   const attempts=[
-    // 1) doğrudan
     async()=>{
-      const r=await fetch(TV_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:payload,signal:AbortSignal.timeout(15000)});
-      if(!r.ok)throw 0; return r.json();
+      const r=await fetch("/.netlify/functions/scan",{signal:AbortSignal.timeout(20000)});
+      if(!r.ok)throw new Error("fn "+r.status);
+      const j=await r.json(); if(j.error)throw new Error(j.error); return j;
     },
-    // 2) allorigins (POST destekli)
     async()=>{
-      const r=await fetch("https://api.allorigins.win/raw?url="+encodeURIComponent(TV_URL),{method:"POST",headers:{"Content-Type":"application/json"},body:payload,signal:AbortSignal.timeout(18000)});
-      if(!r.ok)throw 0; return r.json();
+      const r=await fetch("https://corsproxy.io/?url="+encodeURIComponent(TV_URL),{method:"POST",headers:{"Content-Type":"text/plain"},body:payload,signal:AbortSignal.timeout(25000)});
+      if(!r.ok)throw new Error("corsproxy "+r.status); return r.json();
     },
-    // 3) corsproxy.io
     async()=>{
-      const r=await fetch("https://corsproxy.io/?url="+encodeURIComponent(TV_URL),{method:"POST",headers:{"Content-Type":"application/json"},body:payload,signal:AbortSignal.timeout(18000)});
-      if(!r.ok)throw 0; return r.json();
+      const r=await fetch("https://api.codetabs.com/v1/proxy/?quest="+encodeURIComponent(TV_URL),{method:"POST",headers:{"Content-Type":"text/plain"},body:payload,signal:AbortSignal.timeout(25000)});
+      if(!r.ok)throw new Error("codetabs "+r.status); return r.json();
     },
-    // 4) thingproxy
     async()=>{
-      const r=await fetch("https://thingproxy.freeboard.io/fetch/"+TV_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:payload,signal:AbortSignal.timeout(18000)});
-      if(!r.ok)throw 0; return r.json();
+      const r=await fetch("https://thingproxy.freeboard.io/fetch/"+TV_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:payload,signal:AbortSignal.timeout(25000)});
+      if(!r.ok)throw new Error("thingproxy "+r.status); return r.json();
     }
   ];
   let lastErr;
   for(const fn of attempts){
-    try{ const j=await fn(); if(j&&j.data&&j.data.length) return j; }
+    try{ const j=await fn(); if(j&&j.data&&j.data.length) return j; lastErr=new Error("boş veri"); }
     catch(e){ lastErr=e; }
   }
-  throw new Error("Veri kaynağına ulaşılamadı (CORS/ağ). Lütfen tekrar deneyin.");
+  throw new Error("Veri kaynağına ulaşılamadı ("+(lastErr&&lastErr.message||"ağ")+"). Tekrar deneyin.");
 }
 
 async function fetchAll(){
   const j=await tvScan();
-  const fields=TV_FIELDS;                          // kolonlar bizim gönderdiğimiz sırada
+  const fields=(j.fields&&j.fields.length)?j.fields:TV_FIELDS; // fonksiyon fields gönderdiyse onu kullan
   const idx={};
   fields.forEach((f,i)=>{ idx[f]=i; });
   const G=(d,name)=>{ const i=idx[name]; return (i==null)?null:num(d[i]); };
@@ -1410,6 +1408,8 @@ function checkAlarmFires(){const a=getAlarms();const fires=[];
 async function load(){
   document.getElementById("status").textContent="Taranıyor…";
   document.getElementById("refreshBtn").textContent="…";
+  const loaderP=document.querySelector("#loader p");
+  if(loaderP)loaderP.textContent="Veri kaynağına bağlanılıyor… (10-30 sn sürebilir)";
   try{
     STOCKS=await fetchAll();
     const t=new Date().toLocaleTimeString("tr-TR",{hour:"2-digit",minute:"2-digit"});
