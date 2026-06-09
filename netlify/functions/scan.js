@@ -1,8 +1,5 @@
-// ═══════════════════════════════════════════════════════════════════════════
-//  BIST SCAN · TradingView Scanner Proxy (Netlify Function)
-//  Alan listesi index.html'deki TV_FIELDS ile BİREBİR AYNI sırada olmalı.
-//  index.html isim-bazlı okuduğu için fields dizisini de geri gönderiyoruz.
-// ═══════════════════════════════════════════════════════════════════════════
+// BIST SCAN · TradingView Scanner Proxy (Netlify Function)
+// Alan listesi index.html TV_FIELDS ile birebir aynı.
 const FIELDS = [
   "name",
   "description",
@@ -60,6 +57,12 @@ const FIELDS = [
   "earnings_per_share_diluted_ttm",
   "dividends_yield_current",
   "dividend_payout_ratio_ttm",
+  "dps_common_stock_prim_issue",
+  "dividends_per_share_fq",
+  "dividend_per_share_yoy_growth_fy",
+  "continuous_dividend_payout",
+  "continuous_dividend_growth",
+  "dividends_yield",
   "market_cap_basic",
   "total_shares_outstanding_fundamental",
   "float_shares_outstanding",
@@ -99,7 +102,7 @@ const FIELDS = [
   "ebitda",
   "earnings_per_share_ttm"
 ];
- 
+
 exports.handler = async function() {
   const body = {
     filter: [{ left: "exchange", operation: "equal", right: "BIST" }],
@@ -122,10 +125,7 @@ exports.handler = async function() {
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(15000)
     });
-    if (!r.ok) {
-      const t = await r.text();
-      throw new Error("TradingView " + r.status + ": " + t.slice(0,120));
-    }
+    if (!r.ok) { const t = await r.text(); throw new Error("TradingView " + r.status + ": " + t.slice(0,120)); }
     const data = await r.json();
     return {
       statusCode: 200,
@@ -133,11 +133,6 @@ exports.handler = async function() {
       body: JSON.stringify({ fields: FIELDS, totalCount: data.totalCount, data: data.data })
     };
   } catch (err) {
-    return {
-      statusCode: 500,
-      headers: { "Access-Control-Allow-Origin": "*" },
-      body: JSON.stringify({ error: err.message })
-    };
+    return { statusCode: 500, headers: { "Access-Control-Allow-Origin": "*" }, body: JSON.stringify({ error: err.message }) };
   }
 };
- 
