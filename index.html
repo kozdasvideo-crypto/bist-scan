@@ -1584,3 +1584,64 @@ function addAlarm(){
   document.getElementById("al_sym").value="";document.getElementById("al_price").value="";renderAlarms();
 }
 function delAlarm(i){const a=getAlarms();a.splice(i,1);saveAlarms(a);renderAlarms();}
+function renderAlarms(){
+  const c=document.getElementById("content");
+  const alarms=getAlarms();
+  const fires=[];
+  alarms.forEach(x=>{const s=STOCKS.find(z=>z.symbol===x.sym);
+    if(s&&((x.dir==="below"&&s.price<=x.price)||(x.dir==="above"&&s.price>=x.price)))
+      fires.push(`${x.sym} ${x.dir==="below"?"↓":"↑"} ${x.price} hedefine ulaştı — şu an ${s.price.toFixed(2)}`);});
+  c.innerHTML=`<div class="alarm-add"><h3>🔔 Fiyat Alarmı Ekle</h3>
+    <div class="alarm-inputs">
+      <input id="al_sym" placeholder="Sembol (THYAO)" oninput="this.value=this.value.toUpperCase()">
+      <select id="al_dir"><option value="below">↓ Altına inerse</option><option value="above">↑ Üstüne çıkarsa</option></select>
+    </div>
+    <div class="alarm-inputs"><input id="al_price" type="number" step="0.01" placeholder="Hedef fiyat"><div></div></div>
+    <button class="btn-primary" onclick="addAlarm()">+ Alarm Ekle</button>
+    <button class="btn-secondary" onclick="askNotify()">🔔 Bildirim izni iste</button>
+  </div>`+
+  fires.map(f=>`<div class="alarm-fire">🔔 ${esc(f)}</div>`).join("")+
+  `<div class="sec-hdr"><h2>Aktif Alarmlar</h2><span class="badge">${alarms.length}</span></div>`+
+  (alarms.length?alarms.map((x,i)=>{const cur=STOCKS.find(s=>s.symbol===x.sym);
+    return`<div class="alarm-item"><div>
+      <div class="alarm-sym">${esc(x.sym)}</div>
+      <div class="alarm-info">${x.dir==="below"?"↓ altına":"↑ üstüne"} ${x.price} TL${cur?` <span class="alarm-cur">· şu an ${cur.price.toFixed(2)}</span>`:""}</div>
+    </div><button class="alarm-del" onclick="delAlarm(${i})">✕</button></div>`;}).join(""):
+  `<div class="empty"><span>🔕</span>Henüz alarm yok</div>`);
+}
+function askNotify(){if("Notification" in window)Notification.requestPermission();}
+function checkAlarmFires(){const a=getAlarms();const fires=[];
+  a.forEach(x=>{const s=STOCKS.find(z=>z.symbol===x.sym);if(!s)return;
+    if((x.dir==="below"&&s.price<=x.price)||(x.dir==="above"&&s.price>=x.price))fires.push(`${x.sym} hedefine ulaştı`);});
+  if(fires.length&&"Notification" in window&&Notification.permission==="granted")fires.forEach(f=>new Notification("TRADE ONE",{body:f}));}
+
+// ─── Yükleme ─────────────────────────────────────────────────────────────────
+async function load(){
+  document.getElementById("status").textContent="Taranıyor…";
+  document.getElementById("refreshBtn").textContent="…";
+  const loaderP=document.querySelector("#loader p");
+  if(loaderP)loaderP.textContent="Veri kaynağına bağlanılıyor… (10-30 sn sürebilir)";
+  try{
+    STOCKS=await fetchAll();
+    const t=new Date().toLocaleTimeString("tr-TR",{hour:"2-digit",minute:"2-digit"});
+    document.getElementById("status").textContent=t+" · "+STOCKS.length+" hisse";
+    document.getElementById("refreshBtn").textContent="↻ Yenile";
+    document.getElementById("loader").style.display="none";
+    document.getElementById("content").style.display="block";
+    render();checkAlarmFires();
+  }catch(e){
+    document.getElementById("status").textContent="Hata";
+    document.getElementById("refreshBtn").textContent="↻ Yenile";
+    document.getElementById("loader").style.display="none";
+    document.getElementById("content").style.display="block";
+    document.getElementById("content").innerHTML=`<div class="error-box">
+      <p>📡 Veri alınamadı.<br><small>${esc(e.message)}</small></p>
+      <button onclick="load()">Tekrar Dene</button></div>`;
+  }
+}
+function setAuto(){const el=document.getElementById("auto");if(!el)return;
+  const sec=parseInt(el.value);localStorage.setItem("bist_auto",sec);
+  if(autoTimer)clearInterval(autoTimer);if(sec>0)autoTimer=setInterval(load,sec*1000);}
+load();
+</script>
+</body>
