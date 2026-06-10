@@ -486,7 +486,7 @@ function scoreTechnical(s){
     else if(s.aroonUp>s.aroonDn)           e+=0.25;
   }
 
-  if(p===0) return 5;
+  if(p===0) return null;   // veri yoksa kategori SIRALAMAYA GİRMEZ (eskiden 5 enjekte ediliyordu)
   return Math.max(0, Math.min(10, (e/p)*10));
 }
 
@@ -540,7 +540,7 @@ function scoreValuation(s){
     // ≥60: zirveye yakın — 0 puan
   }
 
-  if(p===0) return 5;
+  if(p===0) return null;   // veri yoksa kategori SIRALAMAYA GİRMEZ (eskiden 5 enjekte ediliyordu)
   return Math.max(0, Math.min(10, (e/p)*10));
 }
 
@@ -607,7 +607,7 @@ function scoreQuality(s){
     // <0: değer yok ediyor — 0 puan
   }
 
-  if(p===0) return 5;
+  if(p===0) return null;   // veri yoksa kategori SIRALAMAYA GİRMEZ (eskiden 5 enjekte ediliyordu)
   return Math.max(0, Math.min(10, (e/p)*10));
 }
 
@@ -682,7 +682,7 @@ function scoreHealth(s){
     // FCF<0: 0 puan
   }
 
-  if(p===0) return 5;
+  if(p===0) return null;   // veri yoksa kategori SIRALAMAYA GİRMEZ (eskiden 5 enjekte ediliyordu)
   return Math.max(0, Math.min(10, (e/p)*10));
 }
 function scoreRisk(s){
@@ -730,7 +730,7 @@ function scoreRisk(s){
     // <200M TL: 0 puan
   }
 
-  if(p===0) return 5;
+  if(p===0) return null;   // veri yoksa kategori SIRALAMAYA GİRMEZ (eskiden 5 enjekte ediliyordu)
   return Math.max(0, Math.min(10, (e/p)*10));
 }
 
@@ -754,13 +754,19 @@ function totalScore(s){
   const t=scoreTechnical(s), v=scoreValuation(s), q=scoreQuality(s),
         h=scoreHealth(s),    r=scoreRisk(s);
   const w=MODES[currentMode].w;
-  const raw = t*w.t + v*w.v + q*w.q + h*w.h + r*w.r;
+  // Yalnızca verisi OLAN kategoriler hesaba katılır; ağırlıklar mevcut kategorilere
+  // göre yeniden normalize edilir. Böylece eksik veri "ortalama 5" gibi davranmaz.
+  const parts=[[t,w.t],[v,w.v],[q,w.q],[h,w.h],[r,w.r]];
+  let sum=0, wsum=0;
+  parts.forEach(([val,wt])=>{ if(val!=null){ sum+=val*wt; wsum+=wt; } });
+  const raw = wsum>0 ? sum/wsum : 0;
+  const rnd=x=>x!=null?Math.round(x):null;
   return {
     raw,
     total:    Math.min(10, Math.max(0, Math.round(raw))),
-    technical:Math.round(t), valuation:Math.round(v),
-    quality:  Math.round(q), health:   Math.round(h),
-    risk:     Math.round(r)
+    technical:rnd(t), valuation:rnd(v),
+    quality:  rnd(q), health:   rnd(h),
+    risk:     rnd(r)
   };
 }
 
@@ -769,10 +775,10 @@ function totalScore(s){
 function analyzeTechnical(s){
   const items=[];
   const buys=[s.rd,s.rw,s.rm].filter(x=>x!=null&&x>=0.1).length;
-  if(buys===3) items.push(["pos","3/3 vadede AL — kısa, orta ve uzun vadede trend uyumu güçlü."]);
-  else if(buys===2) items.push(["neu","2/3 vadede AL — kısmi trend uyumu."]);
-  else if(buys===1) items.push(["neg","Yalnızca 1 vadede AL sinyali — zayıf trend."]);
-  else items.push(["neg","Hiçbir vadede AL sinyali yok."]);
+  if(buys===3) items.push(["pos","3/3 sinyal grubunda AL — Genel, MA ve Osilatör göstergeleri uyumlu."]);
+  else if(buys===2) items.push(["neu","2/3 sinyal grubunda AL — kısmi uzlaşma."]);
+  else if(buys===1) items.push(["neg","Yalnızca 1 sinyal grubunda AL — zayıf uzlaşma."]);
+  else items.push(["neg","Hiçbir sinyal grubunda AL yok."]);
 
   if(s.rsi!=null){
     if(s.rsi>=70) items.push(["neg","RSI "+s.rsi.toFixed(0)+" — aşırı alım bölgesi, kısa vadeli düzeltme riski yüksek."]);
@@ -967,7 +973,7 @@ function headlineTxt(s,sc){
   const buys=[s.rd,s.rw,s.rm].filter(x=>x!=null&&x>=0.1).length;
   // Çoğunluk SAT diyorsa, yüksek skora rağmen alım adayı deme
   if(sells>=2){
-    if(sells===3) return["neg","⛔ Satış bölgesinde — 3/3 vadede SAT sinyali ("+total+"/10)"];
+    if(sells===3) return["neg","⛔ Satış bölgesinde — 3/3 sinyal grubunda SAT ("+total+"/10)"];
     return["neg","⚠️ Satış baskısı — çoğunlukta SAT sinyali ("+total+"/10)"];
   }
   // Zarar eden / negatif nakit akışı uyarısı
@@ -1157,8 +1163,16 @@ function getTop(n=10){
       // Zarar eden şirketi önerme (EPS<0 veya F/K<0)
       if(s.eps!=null&&s.eps<0)  return false;
       if(s.pe!=null&&s.pe<0)    return false;
-      // Aşırı pahalı (F/K çok yüksek) hisseyi alım adayı sayma
-      if(s.pe!=null&&s.pe>40)   return false;
+      // Aşırı pahalı / zarar — F/K varsa F/K ile, YOKSA yedek metriklerle ele
+      if(s.pe!=null){
+        if(s.pe>40)             return false; // aşırı pahalı
+      } else {
+        // F/K null (≈%48 hisse): EV/EBITDA ve PD/DD ile aşırı değerleme/zarar kontrolü
+        if(s.evEbitda!=null&&(s.evEbitda<0||s.evEbitda>25)) return false;
+        if(s.pb!=null&&s.pb>10) return false;
+        // Hem F/K hem EPS yoksa kârlılık doğrulanamaz → alım adayı sayma
+        if(s.eps==null&&s.evEbitda==null&&s.netMargin==null) return false;
+      }
       // RSI aşırı alımda (≥80) olan hisseyi yeni alım önerisi yapma
       if(s.rsi!=null&&s.rsi>=80) return false;
       // KIRMIZI BAYRAK: negatif serbest nakit akışı — nakit yakan şirket
@@ -1205,8 +1219,9 @@ function buildCard(item,rank){
   const an=fullAnalyze(s);
 
   // Kategori renkleri
-  const catColor=v=>v>=7?"#22c55e":v>=5?"#f59e0b":"#f87171";
-  const catBar=v=>`<div class="cs-bar" style="width:${v*10}%;background:${catColor(v)}"></div>`;
+  const catColor=v=>v==null?"#6b7280":v>=7?"#22c55e":v>=5?"#f59e0b":"#f87171";
+  const catBar=v=>v==null?`<div class="cs-bar" style="width:0;background:#6b7280"></div>`:`<div class="cs-bar" style="width:${v*10}%;background:${catColor(v)}"></div>`;
+  const catTxt=v=>v==null?"—":v;   // veri yok → "—"
 
   // Detay bölümü oluştur
   const sections=[
@@ -1219,7 +1234,7 @@ function buildCard(item,rank){
   let detailHtml="";
   sections.forEach(sec=>{
     detailHtml+=`<div class="dsec">
-      <div class="dsec-title"><span>${sec.icon}</span>${sec.title} <span style="margin-left:auto;color:${catColor(sec.score)};font-size:12px;font-weight:900">${sec.score}/10</span></div>
+      <div class="dsec-title"><span>${sec.icon}</span>${sec.title} <span style="margin-left:auto;color:${catColor(sec.score)};font-size:12px;font-weight:900">${sec.score!=null?sec.score+"/10":"veri yok"}</span></div>
       ${sec.items.map(([t,x])=>`<div class="aitem"><span class="dot ${t}"></span><span>${esc(x)}</span></div>`).join("")}
     </div>`;
   });
@@ -1270,17 +1285,17 @@ function buildCard(item,rank){
   </div>
 
   <div class="vade-row">
-    <span class="vade-label">Kısa&nbsp;<span class="vpill" style="background:${kb}">${kd}</span></span>
-    <span class="vade-label">Orta&nbsp;<span class="vpill" style="background:${ob}">${od}</span></span>
-    <span class="vade-label">Uzun&nbsp;<span class="vpill" style="background:${ub}">${ud}</span></span>
+    <span class="vade-label">Genel&nbsp;<span class="vpill" style="background:${kb}">${kd}</span></span>
+    <span class="vade-label">MA&nbsp;<span class="vpill" style="background:${ob}">${od}</span></span>
+    <span class="vade-label">Osilatör&nbsp;<span class="vpill" style="background:${ub}">${ud}</span></span>
   </div>
 
   <div class="cat-scores">
-    <div class="cat-score"><div class="cs-label">Teknik</div><div class="cs-val" style="color:${catColor(sc.technical)}">${sc.technical}</div>${catBar(sc.technical)}</div>
-    <div class="cat-score"><div class="cs-label">Değer</div><div class="cs-val" style="color:${catColor(sc.valuation)}">${sc.valuation}</div>${catBar(sc.valuation)}</div>
-    <div class="cat-score"><div class="cs-label">Kalite</div><div class="cs-val" style="color:${catColor(sc.quality)}">${sc.quality}</div>${catBar(sc.quality)}</div>
-    <div class="cat-score"><div class="cs-label">Sağlık</div><div class="cs-val" style="color:${catColor(sc.health)}">${sc.health}</div>${catBar(sc.health)}</div>
-    <div class="cat-score"><div class="cs-label">Risk</div><div class="cs-val" style="color:${catColor(sc.risk)}">${sc.risk}</div>${catBar(sc.risk)}</div>
+    <div class="cat-score"><div class="cs-label">Teknik</div><div class="cs-val" style="color:${catColor(sc.technical)}">${catTxt(sc.technical)}</div>${catBar(sc.technical)}</div>
+    <div class="cat-score"><div class="cs-label">Değer</div><div class="cs-val" style="color:${catColor(sc.valuation)}">${catTxt(sc.valuation)}</div>${catBar(sc.valuation)}</div>
+    <div class="cat-score"><div class="cs-label">Kalite</div><div class="cs-val" style="color:${catColor(sc.quality)}">${catTxt(sc.quality)}</div>${catBar(sc.quality)}</div>
+    <div class="cat-score"><div class="cs-label">Sağlık</div><div class="cs-val" style="color:${catColor(sc.health)}">${catTxt(sc.health)}</div>${catBar(sc.health)}</div>
+    <div class="cat-score"><div class="cs-label">Risk</div><div class="cs-val" style="color:${catColor(sc.risk)}">${catTxt(sc.risk)}</div>${catBar(sc.risk)}</div>
   </div>
 
   <div class="quick-grid">
@@ -1407,7 +1422,7 @@ function buildDivCard(s,rank){
   const [dlbl,dclr]=getDivLabel(divScore);
   const buyScore=scoreDivBuyOpportunity(s);
   const [blbl,bclr]=getDivBuyLabel(buyScore);
-  const catColor=v=>v>=7?"#22c55e":v>=5?"#f59e0b":"#f87171";
+  const catColor=v=>v==null?"#6b7280":v>=7?"#22c55e":v>=5?"#f59e0b":"#f87171";
   // 52H konum yüzdesi (dipten uzaklık)
   let pos52=null;
   if(s.hi52!=null&&s.lo52!=null&&s.hi52>s.lo52&&s.price>0)
